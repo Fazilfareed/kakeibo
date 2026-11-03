@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kakeibo Design System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+<style>
+:root{
+  --bg:#F6F1E7;--surface:#FFFCF6;--sunken:#EFE8DA;--ink:#1F1C18;--ink2:#5A5349;--ink3:#6B6357;
+  --divider:#E3DACB;--outline:#8E8475;--primary:#2B2925;--onPrimary:#FFFFFF;--seal:#B7322C;
+  --needs:#3D6B4C;--wants:#A24A22;--culture:#6A568F;--unexp:#2D628C;
+  --caution:#875B0C;--over:#A8322D;--success:#3D6B4C;--scrim:rgba(31,28,24,.4);
+  --tint:12%;
+}
+:root[data-theme="dark"]{
+  --bg:#151412;--surface:#1F1D1A;--sunken:#100F0D;--ink:#EEE8DC;--ink2:#B4AC9E;--ink3:#948C7F;
+  --divider:#3A3631;--outline:#7A7267;--primary:#EEE8DC;--onPrimary:#151412;--seal:#E06A60;
+  --needs:#7FB08E;--wants:#E39467;--culture:#AE9BD6;--unexp:#7CB0DA;
+  --caution:#E0B25A;--over:#EE8A84;--success:#7FB08E;--scrim:rgba(0,0,0,.6);--tint:18%;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#151412;--surface:#1F1D1A;--sunken:#100F0D;--ink:#EEE8DC;--ink2:#B4AC9E;--ink3:#948C7F;
+    --divider:#3A3631;--outline:#7A7267;--primary:#EEE8DC;--onPrimary:#151412;--seal:#E06A60;
+    --needs:#7FB08E;--wants:#E39467;--culture:#AE9BD6;--unexp:#7CB0DA;
+    --caution:#E0B25A;--over:#EE8A84;--success:#7FB08E;--scrim:rgba(0,0,0,.6);--tint:18%;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Inter,system-ui,sans-serif;transition:background .25s,color .25s}
+.wrap{max-width:1180px;margin:0 auto;padding:32px 16px 64px}
+h1,h2,h3{font-family:Lora,Georgia,serif;font-weight:600;margin:0}
+h1{font-size:30px}h2{font-size:22px;margin:48px 0 16px}
+.lead{color:var(--ink2);max-width:640px;margin:8px 0 0}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.seal{display:inline-grid;place-items:center;width:44px;height:44px;border:2.5px solid var(--seal);color:var(--seal);border-radius:10px;font-family:Lora,serif;font-weight:600;font-size:20px;transform:rotate(-6deg);margin-right:12px;vertical-align:middle}
+.toggle{display:flex;border:1px solid var(--outline);border-radius:999px;overflow:hidden}
+.toggle button{border:0;background:transparent;color:var(--ink);font:500 14px Inter;padding:10px 16px;min-height:44px;cursor:pointer}
+.toggle button[aria-pressed="true"]{background:var(--primary);color:var(--onPrimary)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.sw{background:var(--surface);border:1px solid var(--divider);border-radius:14px;overflow:hidden}
+.sw i.c{display:block;height:64px}
+.sw div{padding:10px 12px;font-size:13px;line-height:1.4}
+.sw b{display:block;font-weight:600;font-size:14px}
+.sw code{color:var(--ink3);font-size:12px}
+.type-row{display:flex;align-items:baseline;gap:16px;padding:12px 0;border-bottom:1px solid var(--divider);flex-wrap:wrap}
+.type-row code{color:var(--ink3);font-size:12px;min-width:190px}
+.num{font-variant-numeric:tabular-nums}
+.phones{display:flex;gap:28px;flex-wrap:wrap;justify-content:center}
+.phone{width:360px;max-width:100%;height:740px;background:var(--bg);border:10px solid #2b2925;border-radius:44px;position:relative;overflow:hidden;box-shadow:0 20px 40px rgba(0,0,0,.18);display:flex;flex-direction:column}
+:root[data-theme="dark"] .phone{border-color:#3a3631}
+.status{height:28px;display:flex;justify-content:space-between;padding:6px 22px 0;font-size:12px;color:var(--ink2)}
+.scroll{flex:1;overflow:hidden;padding:8px 20px 0}
+.cap{font-size:13px;color:var(--ink3)}
+.hdr{display:flex;justify-content:space-between;align-items:center;margin:4px 0 14px}
+.hdr h3{font-size:24px}
+.card{background:var(--surface);border:1px solid var(--divider);border-radius:14px;padding:16px;margin-bottom:12px}
+.hero{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:20px}
+.money{font:600 38px/1.1 Inter;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+.money .cur{font-size:.55em;color:var(--ink2);margin-right:6px;font-weight:500}
+.ring{--p:72;width:92px;height:92px;border-radius:50%;background:conic-gradient(var(--success) calc(var(--p)*1%),var(--sunken) 0);display:grid;place-items:center;flex:none}
+.ring div{width:72px;height:72px;border-radius:50%;background:var(--surface);display:grid;place-items:center;text-align:center;font-size:11px;line-height:1.2;color:var(--ink2)}
+.ring b{display:block;font-size:18px;color:var(--ink)}
+.act{display:flex;gap:12px;align-items:center;border-left:4px solid var(--info,var(--unexp));padding:12px 14px}
+.act i{font-size:22px;color:var(--ink2)}
+.act span{flex:1;font-size:14px}
+.act a{font:500 14px Inter;color:var(--ink);text-decoration:underline}
+.pill{margin:14px 0 0}
+.pill .row{display:flex;justify-content:space-between;align-items:center;font-size:14px;margin-bottom:6px}
+.pill .row span{display:flex;align-items:center;gap:8px;font-weight:500}
+.pill .row i{font-size:18px}
+.pill .amt{color:var(--ink2);font-variant-numeric:tabular-nums;font-size:13px}
+.track{height:10px;background:var(--sunken);border-radius:99px;overflow:hidden}
+.fill{height:100%;border-radius:99px;width:0;transition:width .6s cubic-bezier(.33,1,.68,1)}
+.pct{font-size:12px;color:var(--ink3);margin-top:4px;display:flex;justify-content:space-between}
+.pct .warn{color:var(--caution);display:flex;gap:4px;align-items:center}
+.nav{height:72px;background:var(--surface);border-top:1px solid var(--divider);display:grid;grid-template-columns:1fr 1fr 80px 1fr 1fr;align-items:center;text-align:center;font-size:12px;color:var(--ink2);position:relative}
+.nav i{font-size:24px;display:block}
+.nav .on{color:var(--ink);font-weight:600}
+.fab{width:64px;height:64px;border-radius:50%;background:var(--primary);color:var(--onPrimary);display:grid;place-items:center;font-size:28px;margin:-34px auto 0;box-shadow:0 2px 8px rgba(0,0,0,.18);border:0;cursor:pointer}
+/* quick add */
+.sheetbg{position:absolute;inset:0;background:var(--scrim)}
+.sheet{position:absolute;left:0;right:0;bottom:0;height:92%;background:var(--surface);border-radius:24px 24px 0 0;padding:10px 18px 16px;display:flex;flex-direction:column;box-shadow:0 -4px 24px rgba(0,0,0,.1)}
+.handle{width:40px;height:4px;border-radius:9px;background:var(--divider);margin:0 auto 10px}
+.amount{text-align:center;margin:6px 0 14px}
+.amount .money{font-size:44px}
+.caret{display:inline-block;width:2px;height:38px;background:var(--ink);vertical-align:-4px;margin-left:2px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.pillars{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ptile{border:0;border-radius:14px;min-height:60px;display:flex;align-items:center;gap:10px;padding:0 14px;font:500 15px Inter;cursor:pointer;transition:background .15s,color .15s}
+.ptile i{font-size:26px}
+.ptile.sel{color:#fff}
+:root[data-theme="dark"] .ptile.sel{color:#151412}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.chip{height:36px;padding:0 12px;border:1px solid var(--outline);border-radius:8px;display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink);background:transparent}
+.chip.sel{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.keys{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:auto}
+.key{height:52px;border:0;border-radius:12px;background:var(--sunken);color:var(--ink);font:500 20px Inter;cursor:pointer}
+.key:active{filter:brightness(.92)}
+.save{margin-top:10px;height:52px;border:0;border-radius:14px;background:var(--primary);color:var(--onPrimary);font:600 16px Inter;cursor:pointer}
+.save:disabled{opacity:.38;cursor:default}
+/* components */
+.comp{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.btn{height:52px;padding:0 22px;border-radius:14px;font:600 16px Inter;cursor:pointer}
+.btn.p{background:var(--primary);color:var(--onPrimary);border:0}
+.btn.s{background:var(--surface);color:var(--ink);border:1px solid var(--outline)}
+.btn.t{background:none;border:0;color:var(--ink);text-decoration:underline}
+.btn.d{background:none;border:0;color:var(--over)}
+.snack{background:var(--ink);color:var(--bg);border-radius:12px;padding:12px 16px;display:flex;gap:24px;align-items:center;font-size:14px}
+.snack b{color:var(--bg);text-decoration:underline}
+.stamp{width:86px;height:86px;border:3px solid var(--seal);border-radius:50%;color:var(--seal);display:grid;place-items:center;text-align:center;font:600 14px/1.1 Lora;transform:rotate(-10deg)}
+.stamp span{font-size:22px;display:block}
+.empty{text-align:center;padding:24px}
+.empty i{font-size:48px;color:var(--ink3)}
+.dl{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.dl .card p{margin:4px 0 0;color:var(--ink2);font-size:14px}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+@media (max-width:420px){.phone{height:auto;min-height:700px;border-width:6px;border-radius:28px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <h1><span class="seal">家</span>Kakeibo Design System</h1>
+      <p class="lead">Calm paper and ink, four soft pillar colours, big tabular numbers, gentle motion. This preview mirrors <code>MASTER.md</code>. Toggle the theme to check dark mode.</p>
+    </div>
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+    <label style="font-size:14px;color:var(--ink2)">Currency format
+      <select id="sym" style="margin-left:6px;height:44px;border:1px solid var(--outline);border-radius:8px;background:var(--surface);color:var(--ink);font:500 14px Inter;padding:0 8px">
+        <option value="Rs|b">Rs 8,450</option><option value="Rs.|b">Rs. 8,450</option><option value="LKR|a">8,450 LKR</option><option value="රු|b">රු 8,450</option><option value="ரூ|b">ரூ 8,450</option>
+      </select></label>
+    <div class="toggle" role="group" aria-label="Theme">
+      <button data-t="light" aria-pressed="true">Light</button>
+      <button data-t="dark" aria-pressed="false">Dark</button>
+    </div>
+  </div>
+  </div>
+
+  <h2>Screens</h2>
+  <div class="phones">
+    <!-- Dashboard -->
+    <div class="phone" aria-label="Dashboard mockup">
+      <div class="status"><span>9:41</span><span><i class="ph ph-wifi-high"></i> <i class="ph ph-battery-high"></i></span></div>
+      <div class="scroll">
+        <div class="hdr"><div><div class="cap">1 Nov – 30 Nov · 19 days left</div><h3>November</h3></div><i class="ph ph-bell" style="font-size:24px;color:var(--ink2)"></i></div>
+        <div class="card hero">
+          <div>
+            <div class="cap">Left to spend</div>
+            <div class="money"><span class="cur">Rs</span><span id="rem">8,450</span></div>
+            <div class="cap" style="display:flex;gap:4px;align-items:center">Rs 444 a day keeps you on track <i class="ph ph-question"></i></div>
+          </div>
+          <div class="ring" style="--p:72"><div><span><b>72%</b>of Rs 10,000<br>goal</span></div></div>
+        </div>
+        <div class="card act" style="border-left-color:var(--needs)">
+          <i class="ph ph-target"></i><span><b>This month:</b> no food delivery</span>
+        </div>
+        <div class="card">
+          <div class="pill" style="margin-top:0" data-c="needs" data-p="62"><div class="row"><span><i class="ph ph-house-line" style="color:var(--needs)"></i>Needs</span><span class="amt">Rs 6,200 / Rs 10,000</span></div><div class="track"><div class="fill"></div></div><div class="pct"><span>62%</span></div></div>
+          <div class="pill" data-c="caution" data-p="81"><div class="row"><span><i class="ph ph-shopping-bag" style="color:var(--wants)"></i>Wants</span><span class="amt">Rs 3,240 / Rs 4,000</span></div><div class="track"><div class="fill"></div></div><div class="pct"><span>81%</span><span class="warn"><i class="ph ph-warning-circle"></i>Getting close</span></div></div>
+          <div class="pill" data-c="culture" data-p="20"><div class="row"><span><i class="ph ph-book-open" style="color:var(--culture)"></i>Culture</span><span class="amt">Rs 400 / Rs 2,000</span></div><div class="track"><div class="fill"></div></div><div class="pct"><span>20%</span></div></div>
+          <div class="pill" data-c="unexp" data-p="0"><div class="row"><span><i class="ph ph-lightning" style="color:var(--unexp)"></i>Unexpected</span><span class="amt">Rs 0 / Rs 1,500</span></div><div class="track"><div class="fill"></div></div><div class="pct"><span>0%</span></div></div>
+        </div>
+      </div>
+      <div class="nav">
+        <div class="on"><i class="ph-fill ph-house"></i>Home</div>
+        <div><i class="ph ph-list-bullets"></i>Spends</div>
+        <div><button class="fab" aria-label="Add expense" id="openSheet"><i class="ph ph-plus"></i></button></div>
+        <div><i class="ph ph-chart-bar"></i>History</div>
+        <div><i class="ph ph-gear-six"></i>Settings</div>
+      </div>
+    </div>
+
+    <!-- Quick add -->
+    <div class="phone" aria-label="Quick add mockup">
+      <div class="status"><span>9:41</span><span><i class="ph ph-wifi-high"></i> <i class="ph ph-battery-high"></i></span></div>
+      <div class="scroll"></div>
+      <div class="sheetbg"></div>
+      <div class="sheet" role="dialog" aria-label="Add expense">
+        <div class="handle"></div>
+        <div class="amount"><div class="money"><span class="cur">Rs</span><span id="amt">240</span><span class="caret"></span></div></div>
+        <div class="pillars" id="pillars">
+          <button class="ptile" data-c="needs"><i class="ph ph-house-line"></i>Needs</button>
+          <button class="ptile" data-c="wants"><i class="ph ph-shopping-bag"></i>Wants</button>
+          <button class="ptile" data-c="culture"><i class="ph ph-book-open"></i>Culture</button>
+          <button class="ptile" data-c="unexp"><i class="ph ph-lightning"></i>Unexpected</button>
+        </div>
+        <div class="chips">
+          <span class="chip"><i class="ph ph-note-pencil"></i>Groceries</span>
+          <span class="chip"><i class="ph ph-calendar-blank"></i>Today</span>
+          <span class="chip"><i class="ph ph-device-mobile"></i>UPI</span>
+          <span class="chip sel"><i class="ph ph-smiley"></i>Worth it</span>
+        </div>
+        <div class="keys" id="keys">
+          <button class="key">1</button><button class="key">2</button><button class="key">3</button>
+          <button class="key">4</button><button class="key">5</button><button class="key">6</button>
+          <button class="key">7</button><button class="key">8</button><button class="key">9</button>
+          <button class="key">00</button><button class="key">0</button><button class="key" aria-label="Delete"><i class="ph ph-backspace"></i></button>
+        </div>
+        <button class="save" id="save" disabled>Choose a pillar to save</button>
+      </div>
+    </div>
+  </div>
+
+  <h2>Colour · surfaces &amp; text</h2>
+  <div class="grid" id="core"></div>
+  <h2>Colour · pillars &amp; status</h2>
+  <div class="grid" id="pill"></div>
+
+  <h2>Typography</h2>
+  <div class="card">
+    <div class="type-row"><code>displayMoney · Inter 600 40</code><span class="money"><span class="cur">Rs</span>100,000</span></div>
+    <div class="type-row"><code>headline · Lora 600 26</code><span style="font:600 26px Lora">Plan your month</span></div>
+    <div class="type-row"><code>title · Lora 600 20</code><span style="font:600 20px Lora">How can I improve?</span></div>
+    <div class="type-row"><code>moneyM · Inter 600 22 tabular</code><span class="num" style="font:600 22px Inter">Rs 6,200.00</span></div>
+    <div class="type-row"><code>body · Inter 400 16</code><span>Log every expense into one of four pillars.</span></div>
+    <div class="type-row"><code>label · Inter 500 14</code><span style="font:500 14px Inter">Save expense</span></div>
+    <div class="type-row"><code>caption · Inter 400 13</code><span class="cap">Mon, 3 Nov · UPI</span></div>
+    <div class="type-row" style="border:0"><code>reflection · Lora 400 18</code><span style="font:400 18px/28px Lora">Which purchase made me genuinely happy this month?</span></div>
+  </div>
+
+  <h2>Components</h2>
+  <div class="card comp">
+    <button class="btn p">Save</button><button class="btn s">Edit plan</button><button class="btn t">Not now</button><button class="btn d">Delete</button>
+  </div>
+  <div class="dl">
+    <div class="card"><div class="snack">Saved Rs 240 to Needs <b>Undo</b></div><p>Snackbar: one action, 4 s, sits above the nav bar.</p></div>
+    <div class="card" style="display:flex;gap:16px;align-items:center"><div class="stamp"><div><span>貯</span>Saved</div></div><p>The hanko stamp appears once, when the savings goal is met.</p></div>
+    <div class="card empty"><i class="ph ph-receipt"></i><h3 style="font-size:18px;margin-top:8px">No expenses yet</h3><p>Tap <b>+</b> to log your first one.</p></div>
+    <div class="card act" style="border-left-color:var(--caution)"><i class="ph ph-cloud-arrow-up"></i><span>Last backup 16 days ago</span><a href="#">Back up</a></div>
+  </div>
+
+  <h2>Motion tokens</h2>
+  <div class="dl">
+    <div class="card"><b>tapFeedback</b> 90 ms easeOut<p>Press tint, no layout shift</p></div>
+    <div class="card"><b>micro</b> 150 ms easeOutCubic<p>Chips, toggles, icon swaps</p></div>
+    <div class="card"><b>sheet</b> 300 ms in · 220 ms out<p>Quick-add bottom sheet</p></div>
+    <div class="card"><b>progress</b> 600 ms easeOutCubic<p>Pillar bars &amp; savings ring</p></div>
+  </div>
+</div>
+<script>
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const core=[['bg','--bg'],['surface','--surface'],['surfaceSunken','--sunken'],['ink','--ink'],['ink2','--ink2'],['ink3','--ink3'],['divider','--divider'],['outline','--outline'],['primary','--primary'],['seal','--seal']];
+const pill=[['Needs','--needs'],['Wants','--wants'],['Culture','--culture'],['Unexpected','--unexp'],['caution','--caution'],['over','--over'],['success','--success']];
+function swatches(){
+  for(const [id,list] of [['core',core],['pill',pill]]){
+    document.getElementById(id).innerHTML=list.map(([n,v])=>`<div class="sw"><i class="c" style="background:var(${v})"></i><div><b>${n}</b><code>${css(v)}</code></div></div>`).join('');
+  }
+}
+function bars(){
+  document.querySelectorAll('.pill').forEach(p=>{const f=p.querySelector('.fill');f.style.width='0';f.style.background=`var(--${p.dataset.c})`;requestAnimationFrame(()=>requestAnimationFrame(()=>f.style.width=p.dataset.p+'%'));});
+}
+function setTheme(t){
+  document.documentElement.dataset.theme=t;
+  document.querySelectorAll('.toggle button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.t===t));
+  try{localStorage.setItem('kk-theme',t)}catch(e){}
+  swatches();paintTiles();
+}
+document.querySelectorAll('.toggle button').forEach(b=>b.onclick=()=>setTheme(b.dataset.t));
+let sel=null;
+function paintTiles(){
+  document.querySelectorAll('.ptile').forEach(t=>{
+    const c=`var(--${t.dataset.c})`;
+    if(t.dataset.c===sel){t.classList.add('sel');t.style.background=c;t.style.color='';}
+    else{t.classList.remove('sel');t.style.background=`color-mix(in srgb, ${c} var(--tint), var(--surface))`;t.style.color=c;}
+  });
+}
+document.getElementById('pillars').onclick=e=>{const t=e.target.closest('.ptile');if(!t)return;sel=t.dataset.c;paintTiles();const s=document.getElementById('save');s.disabled=false;s.textContent='Save';};
+const amt=document.getElementById('amt');
+document.getElementById('keys').onclick=e=>{const k=e.target.closest('.key');if(!k)return;let v=amt.textContent.replace(/,/g,'');
+  if(k.getAttribute('aria-label')==='Delete')v=v.slice(0,-1)||'0';else v=(v==='0'?'':v)+k.textContent;
+  if(v.length>9)return;amt.textContent=Number(v).toLocaleString('en-US');};
+document.getElementById('save').onclick=()=>{const s=document.getElementById('save');s.textContent='Saved ✓';setTimeout(()=>{s.textContent='Save'},1200);};
+let initial='light';try{initial=localStorage.getItem('kk-theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')}catch(e){}
+setTheme(initial);bars();
+document.getElementById('sym').onchange=e=>{const [sy,pos]=e.target.value.split('|');
+  document.querySelectorAll('.money').forEach(m=>{const c=m.querySelector('.cur');c.textContent=sy;
+    if(pos==='a'){m.appendChild(c);c.style.margin='0 0 0 6px'}else{m.prepend(c);c.style.margin='0 6px 0 0'}});};
+</script>
+</body>
+</html>

@@ -24,3 +24,6 @@ The source of truth is `Kakeibo_PRD_Architecture.md` (v1.2). When a skill's gene
 - `android/gradle.properties` is sized for this 8 GB RAM PC (Gradle 2.5 GB, Kotlin 1.5 GB) and turns off `kotlin.incremental`, because the project (F:) and pub cache (C:) are on different drives. Don't raise those limits.
 - After changing Drift tables: `dart run build_runner build --delete-conflicting-outputs`.
 - Widget tests must not use a real SQLite database (its I/O never completes in fake-async). Override `pillarsProvider`/`settingsProvider` with `Stream.value(...)`, as in `test/widget_test.dart`. Database logic is tested in `test/core/db/` with `NativeDatabase.memory()`.
+
+## Git
+- Commit as **Fazilfareed <fazilfrd9@gmail.com>** (personal account, set in this repo's local config). The PC's global git identity is a work account. Never use it or change it here. Push only to a remote on the personal GitHub account.

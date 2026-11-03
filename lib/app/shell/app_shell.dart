@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
-import '../../core/widgets/empty_state.dart';
+import '../../features/expenses/presentation/quick_add_sheet.dart';
 import '../theme/kakeibo_colors.dart';
 import '../theme/kakeibo_text.dart';
 import '../theme/tokens.dart';
@@ -46,7 +45,7 @@ class AppShell extends StatelessWidget {
       body: SafeArea(bottom: false, child: navigationShell),
       floatingActionButton: FloatingActionButton(
         tooltip: 'Add expense',
-        onPressed: () => showQuickAddPlaceholder(context),
+        onPressed: () => showQuickAddSheet(context),
         child: const Icon(Symbols.add_rounded, size: 28),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
@@ -124,19 +123,4 @@ class _NavItem extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Stand-in for the quick-add sheet, which is built in milestone M1.
-Future<void> showQuickAddPlaceholder(BuildContext context) {
-  HapticFeedback.lightImpact();
-  return showModalBottomSheet<void>(
-    context: context,
-    builder: (context) => const SafeArea(
-      child: EmptyState(
-        icon: Symbols.payments_rounded,
-        title: 'Quick add is coming',
-        message: 'Logging an expense in under 5 seconds arrives in the next milestone.',
-      ),
-    ),
-  );
 }

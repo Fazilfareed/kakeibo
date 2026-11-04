@@ -30,8 +30,10 @@ class ReflectionScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final summary = ref.watch(reflectionSummaryProvider(periodId));
+    // While refreshing (after Finish) keep showing the loaded month.
+    final value = summary.value;
+    if (value != null) return _Wizard(summary: value);
     return switch (summary) {
-      AsyncData(:final value) => _Wizard(summary: value),
       AsyncError() => Scaffold(
         appBar: AppBar(),
         body: const Center(child: Text("Couldn't load this month.")),
@@ -105,6 +107,8 @@ class _WizardState extends ConsumerState<_Wizard> {
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
     await repo.complete(_draft);
+    // Screens showing this month (History) reload the finished answers.
+    ref.invalidate(reflectionSummaryProvider(s.period.id));
     navigator.pop();
     messenger.removeCurrentSnackBar();
     messenger.showSnackBar(

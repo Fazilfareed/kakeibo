@@ -6,10 +6,14 @@ import 'package:kakeibo/core/date/local_date.dart';
 import 'package:kakeibo/core/db/app_database.dart';
 import 'package:kakeibo/core/money/money_text.dart';
 import 'package:kakeibo/core/pillars/pillars_provider.dart';
+import 'package:kakeibo/features/backup/data/backup_providers.dart';
+import 'package:kakeibo/features/backup/data/backup_repository.dart';
 import 'package:kakeibo/features/checkin/data/checkin_providers.dart';
 import 'package:kakeibo/features/checkin/data/checkin_repository.dart';
 import 'package:kakeibo/features/expenses/data/expense_providers.dart';
 import 'package:kakeibo/features/expenses/data/expense_repository.dart';
+import 'package:kakeibo/features/history/data/history_providers.dart';
+import 'package:kakeibo/features/history/data/history_repository.dart';
 import 'package:kakeibo/features/periods/data/period_providers.dart';
 import 'package:kakeibo/features/periods/domain/period_math.dart';
 import 'package:kakeibo/features/periods/domain/period_summary.dart';
@@ -40,6 +44,8 @@ class _FakeReflectionDraft extends Fake implements ReflectionDraft {}
 class _MockCheckins extends Mock implements CheckinRepository {}
 
 class _MockSettings extends Mock implements SettingsRepository {}
+
+class _MockBackup extends Mock implements BackupRepository {}
 
 Period _period({String status = 'active'}) {
   final today = DateTime.now();
@@ -98,6 +104,8 @@ Widget _app({
   ReflectionSummary? reflectionSummary,
   CheckinRepository? checkins,
   Map<int, int> weekTotals = const {},
+  List<MonthRecord> history = const [],
+  BackupRepository? backup,
 }) {
   final period = _period(status: status);
   final settingsRepo = _MockSettings();
@@ -121,6 +129,8 @@ Widget _app({
       if (reflectionSummary != null)
         reflectionSummaryProvider.overrideWith((ref, id) async => reflectionSummary),
       if (checkins != null) checkinRepositoryProvider.overrideWithValue(checkins),
+      historyMonthsProvider.overrideWith((ref) => Stream.value(history)),
+      if (backup != null) backupRepositoryProvider.overrideWithValue(backup),
     ],
     child: const KakeiboApp(),
   );
@@ -426,6 +436,149 @@ void main() {
       final args = verify(() => repo.save(1, captureAny(), 'Watch eating out')).captured;
       expect(args.single, isA<DateTime>());
       expect(find.text('Check-in saved. See you next week.'), findsOneWidget);
+    });
+  });
+
+  group('M4 insights', () {
+    Period month(int id, String start, String end, {String status = 'closed'}) => Period(
+      id: id,
+      startDate: start,
+      endDate: end,
+      savingsGoal: 1500000,
+      savingsGoalType: 'amount',
+      savingsSetAside: true,
+      isPartial: false,
+      status: status,
+      createdAt: '',
+      updatedAt: '',
+    );
+    Reflection done(int periodId, int saved) => Reflection(
+      periodId: periodId,
+      savedAmount: saved,
+      goalMet: saved >= 1500000,
+      answerQ1: 'Missed it by a little',
+      improvement: 'Cook at home',
+      completedAt: '2026-11-01T00:00:00Z',
+      editedAfterClose: 25000,
+    );
+    final records = [
+      MonthRecord(
+        period: month(3, '2026-11-01', '2026-11-30', status: 'active'),
+        income: 15000000,
+        fixed: 4000000,
+        spentByPillar: const {1: 100000},
+        reflection: null,
+      ),
+      MonthRecord(
+        period: month(2, '2026-10-01', '2026-10-31'),
+        income: 12000000,
+        fixed: 4000000,
+        spentByPillar: const {1: 3250000, 2: 1350000, 3: 780000, 4: 1620000},
+        reflection: done(2, 1000000),
+      ),
+      MonthRecord(
+        period: month(1, '2026-09-01', '2026-09-30'),
+        income: 12000000,
+        fixed: 4000000,
+        spentByPillar: const {1: 5000000},
+        reflection: null,
+      ),
+    ];
+
+    testWidgets('History shows lifetime savings, charts and month cards', (tester) async {
+      _phoneScreen(tester);
+      await tester.pumpWidget(_app(history: records));
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel('History'));
+      await tester.pumpAndSettle();
+
+      // FR-63: October 10,000 (frozen) + September 30,000; November is still open.
+      expect(find.text('Saved so far'), findsOneWidget);
+      expect(find.byWidgetPredicate((w) => w is MoneyText && w.cents == 4000000), findsOneWidget);
+      expect(find.text('2 months · goal met in 1 of 2'), findsOneWidget);
+      expect(find.text('Savings by month'), findsOneWidget);
+      expect(find.text('Spending by pillar'), findsOneWidget);
+
+      await tester.scrollUntilVisible(find.text('September 2026'), 300);
+      expect(find.text('October 2026'), findsOneWidget);
+      expect(find.text('Rs 5,000 short'), findsOneWidget);
+      expect(find.text('Goal met'), findsOneWidget);
+      expect(find.text('Reflection waiting'), findsOneWidget);
+    });
+
+    testWidgets('a month shows its totals, edits after close and the answers', (tester) async {
+      _phoneScreen(tester);
+      final summary = ReflectionSummary(
+        period: month(2, '2026-10-01', '2026-10-31'),
+        income: 12000000,
+        fixed: 4000000,
+        spentByPillar: const {1: 3250000, 2: 1350000, 3: 780000, 4: 1645000},
+        plannedByPillar: const {1: 3000000, 2: 1500000, 3: 1000000, 4: 1000000},
+        worthIt: const [],
+        regrets: const [],
+        previousImprovement: null,
+        isFirstReflection: false,
+        saved: done(2, 1000000),
+      );
+      await tester.pumpWidget(_app(history: records, reflectionSummary: summary));
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel('History'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('October 2026'), 300);
+      await tester.ensureVisible(find.text('October 2026'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('October 2026'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Rs 5,000 short of the Rs 15,000 goal.'), findsOneWidget);
+      expect(find.textContaining('Edited after close: +Rs 250 of spending'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Cook at home'), 300);
+      expect(find.text('Missed it by a little'), findsOneWidget);
+    });
+
+    testWidgets('delete all data asks twice before deleting', (tester) async {
+      _phoneScreen(tester);
+      final repo = _MockBackup();
+      when(() => repo.deleteAll()).thenAnswer((_) async {});
+      await tester.pumpWidget(_app(backup: repo));
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel('Settings'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('Delete all data'), 300);
+      await tester.ensureVisible(find.text('Delete all data'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete all data'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Delete all data?'), findsOneWidget);
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+      expect(find.text('Are you sure?'), findsOneWidget);
+      verifyNever(() => repo.deleteAll());
+
+      await tester.tap(find.text('Delete everything'));
+      await tester.pumpAndSettle();
+      verify(() => repo.deleteAll()).called(1);
+      expect(find.text('All data deleted.'), findsOneWidget);
+    });
+
+    testWidgets('cancelling the second question deletes nothing', (tester) async {
+      _phoneScreen(tester);
+      final repo = _MockBackup();
+      await tester.pumpWidget(_app(backup: repo));
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel('Settings'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('Delete all data'), 300);
+      await tester.ensureVisible(find.text('Delete all data'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete all data'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      verifyNever(() => repo.deleteAll());
     });
   });
 }

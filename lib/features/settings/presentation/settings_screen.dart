@@ -10,6 +10,7 @@ import '../../../app/theme/kakeibo_text.dart';
 import '../../../app/theme/tokens.dart';
 import '../../../core/dev/sample_month.dart';
 import '../../../core/db/database_provider.dart';
+import '../../backup/presentation/backup_actions.dart';
 import '../../checkin/data/checkin_providers.dart';
 import '../data/settings_repository.dart';
 import '../domain/app_preferences.dart';
@@ -23,6 +24,7 @@ class SettingsScreen extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
     final formatter = ref.watch(moneyFormatterProvider);
     final weekStart = ref.watch(weekStartDayProvider);
+    final lastBackup = ref.watch(settingsProvider).value?[lastBackupKey];
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(Space.gutter, Space.s3, Space.gutter, 96),
@@ -95,6 +97,40 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ],
             ),
+          ),
+        ),
+        const SizedBox(height: Space.s5),
+        const _SectionLabel('Data'),
+        Card(
+          child: Column(
+            children: [
+              ListTile(
+                leading: const Icon(Symbols.backup_rounded),
+                title: const Text('Back up now'),
+                subtitle: Text(BackupActions.lastBackupLabel(lastBackup)),
+                onTap: () => BackupActions.backUp(context, ref),
+              ),
+              const Divider(indent: 56),
+              ListTile(
+                leading: const Icon(Symbols.settings_backup_restore_rounded),
+                title: const Text('Restore from a backup'),
+                subtitle: const Text('Replaces the data on this phone'),
+                onTap: () => BackupActions.restore(context, ref),
+              ),
+              const Divider(indent: 56),
+              ListTile(
+                leading: const Icon(Symbols.table_view_rounded),
+                title: const Text('Export spends'),
+                subtitle: const Text('A CSV file for spreadsheets'),
+                onTap: () => BackupActions.exportCsv(context, ref),
+              ),
+              const Divider(indent: 56),
+              ListTile(
+                leading: Icon(Symbols.delete_forever_rounded, color: c.over),
+                title: Text('Delete all data', style: TextStyle(color: c.over)),
+                onTap: () => BackupActions.deleteAll(context, ref),
+              ),
+            ],
           ),
         ),
         if (kDebugMode) ...[

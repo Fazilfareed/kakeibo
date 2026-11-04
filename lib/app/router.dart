@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../features/checkin/presentation/checkin_screen.dart';
 import '../features/dashboard/presentation/dashboard_screen.dart';
 import '../features/history/presentation/history_screen.dart';
+import '../features/history/presentation/month_detail_screen.dart';
 import '../features/periods/presentation/plan_month_screen.dart';
 import '../features/reflection/presentation/reflection_screen.dart';
 import '../features/settings/presentation/currency_format_screen.dart';
@@ -20,6 +21,7 @@ abstract final class Routes {
   static const plan = '/plan';
   static const checkin = '/checkin';
   static String reflect(int periodId) => '/reflect/$periodId';
+  static String month(int periodId) => '/history/$periodId';
 }
 
 final _rootKey = GlobalKey<NavigatorState>();
@@ -58,7 +60,19 @@ GoRouter buildRouter() {
             ],
           ),
           StatefulShellBranch(
-            routes: [GoRoute(path: Routes.history, builder: (_, _) => const HistoryScreen())],
+            routes: [
+              GoRoute(
+                path: Routes.history,
+                builder: (_, _) => const HistoryScreen(),
+                routes: [
+                  GoRoute(
+                    path: ':periodId',
+                    builder: (_, state) =>
+                        MonthDetailScreen(periodId: int.parse(state.pathParameters['periodId']!)),
+                  ),
+                ],
+              ),
+            ],
           ),
           StatefulShellBranch(
             routes: [

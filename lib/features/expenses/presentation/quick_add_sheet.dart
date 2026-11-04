@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:logging/logging.dart';
 import 'package:intl/intl.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -162,6 +163,12 @@ class _QuickAddSheetState extends ConsumerState<QuickAddSheet> {
       messenger.showSnackBar(
         const SnackBar(content: Text("That date isn't in a planned month yet.")),
       );
+    } on Object catch (e, st) {
+      // PRD §8.2: say so, keep the sheet open, and log it (NFR-12).
+      Logger('expenses').severe('Saving an expense failed', e, st);
+      if (!mounted) return;
+      setState(() => _saving = false);
+      messenger.showSnackBar(const SnackBar(content: Text("Couldn't save. Try again.")));
     }
   }
 
@@ -431,6 +438,7 @@ class _PillarGrid extends StatelessWidget {
                 button: true,
                 selected: selected,
                 label: p.name,
+                onTap: () => onPick(p.id),
                 excludeSemantics: true,
                 child: Material(
                   color: selected ? accent : c.container(accent),

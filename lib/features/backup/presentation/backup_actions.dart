@@ -11,8 +11,10 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../../app/theme/kakeibo_colors.dart';
 import '../../../core/date/local_date.dart';
+import '../../../core/diagnostics/diagnostics.dart';
 import '../../periods/data/period_providers.dart';
 import '../../settings/data/settings_repository.dart';
+import '../data/auto_backup.dart';
 import '../data/backup_providers.dart';
 import '../data/backup_repository.dart';
 
@@ -132,6 +134,61 @@ abstract final class BackupActions {
     await repo.restore(text);
     ref.invalidate(ledgerBootstrapProvider);
     messenger.showSnackBar(const SnackBar(content: Text('Backup restored.')));
+  }
+
+  /// FR-73: pick a folder, then back up to it now and every week.
+  static Future<void> chooseAutoBackupFolder(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final folder = await ref.read(backupFolderProvider).pick();
+    if (folder == null) return;
+    final settings = ref.read(settingsRepositoryProvider);
+    final old = ref.read(settingsProvider).value?[AutoBackup.keyFolderUri];
+    if (old != null && old != folder.uri) await ref.read(backupFolderProvider).release(old);
+    final values = {
+      AutoBackup.keyEnabled: 'true',
+      AutoBackup.keyFolderUri: folder.uri,
+      AutoBackup.keyFolderName: folder.name,
+      AutoBackup.keyError: '',
+    };
+    await settings.setAll(values);
+    // Back up straight away, whatever the last backup's date.
+    final run = await ref
+        .read(autoBackupProvider)
+        .runIfDue({...?ref.read(settingsProvider).value, ...values}..remove(lastBackupKey));
+    if (run.settings.isNotEmpty) await settings.setAll(run.settings);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          run.outcome == AutoBackupOutcome.saved
+              ? 'Backed up to ${folder.name}. Kakeibo will do this every week.'
+              : "Couldn't save to ${folder.name}. Try another folder.",
+        ),
+      ),
+    );
+  }
+
+  static Future<void> turnOffAutoBackup(WidgetRef ref) async {
+    final uri = ref.read(settingsProvider).value?[AutoBackup.keyFolderUri];
+    if (uri != null) await ref.read(backupFolderProvider).release(uri);
+    await ref.read(settingsRepositoryProvider).set(AutoBackup.keyEnabled, 'false');
+  }
+
+  /// NFR-12: share the local error log, for example to report a problem.
+  static Future<void> exportDiagnostics(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final log = await Diagnostics.collect();
+    if (log.isEmpty) {
+      messenger.showSnackBar(const SnackBar(content: Text('The log is empty.')));
+      return;
+    }
+    final file = await _tempFile('kakeibo-diagnostics-${LocalDate.today()}.txt');
+    await file.writeAsString(log);
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile(file.path, mimeType: 'text/plain')],
+        subject: 'Kakeibo diagnostics',
+      ),
+    );
   }
 
   /// FR-72: two confirmations, then delete everything.

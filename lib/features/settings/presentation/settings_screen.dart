@@ -10,8 +10,11 @@ import '../../../app/theme/kakeibo_text.dart';
 import '../../../app/theme/tokens.dart';
 import '../../../core/dev/sample_month.dart';
 import '../../../core/db/database_provider.dart';
+import '../../backup/data/auto_backup.dart';
 import '../../backup/presentation/backup_actions.dart';
 import '../../checkin/data/checkin_providers.dart';
+import '../../lock/presentation/security_settings_card.dart';
+import '../../reminders/presentation/reminder_settings_card.dart';
 import '../data/settings_repository.dart';
 import '../domain/app_preferences.dart';
 
@@ -24,7 +27,10 @@ class SettingsScreen extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
     final formatter = ref.watch(moneyFormatterProvider);
     final weekStart = ref.watch(weekStartDayProvider);
-    final lastBackup = ref.watch(settingsProvider).value?[lastBackupKey];
+    final all = ref.watch(settingsProvider).value ?? const <String, String>{};
+    final lastBackup = all[lastBackupKey];
+    final autoOn = all[AutoBackup.keyEnabled] == 'true' && all[AutoBackup.keyFolderUri] != null;
+    final autoError = (all[AutoBackup.keyError] ?? '').isNotEmpty;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(Space.gutter, Space.s3, Space.gutter, 96),
@@ -72,6 +78,12 @@ class SettingsScreen extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: Space.s5),
+        const _SectionLabel('Reminders'),
+        const ReminderSettingsCard(),
+        const SizedBox(height: Space.s5),
+        const _SectionLabel('Security'),
+        const SecuritySettingsCard(),
+        const SizedBox(height: Space.s5),
         const _SectionLabel('Appearance'),
         Card(
           child: Padding(
@@ -104,6 +116,31 @@ class SettingsScreen extends ConsumerWidget {
         Card(
           child: Column(
             children: [
+              SwitchListTile(
+                secondary: const Icon(Symbols.event_repeat_rounded),
+                title: const Text('Automatic weekly backup'),
+                subtitle: Text(
+                  !autoOn
+                      ? 'Off'
+                      : autoError
+                      ? "Couldn't reach ${all[AutoBackup.keyFolderName]}. Choose the folder again."
+                      : 'To ${all[AutoBackup.keyFolderName]} · keeps the last ${AutoBackup.keep}',
+                  style: autoError ? TextStyle(color: c.over) : null,
+                ),
+                value: autoOn,
+                onChanged: (v) => v
+                    ? BackupActions.chooseAutoBackupFolder(context, ref)
+                    : BackupActions.turnOffAutoBackup(ref),
+              ),
+              if (autoOn) ...[
+                const Divider(indent: 56),
+                ListTile(
+                  leading: const Icon(Symbols.folder_open_rounded),
+                  title: const Text('Change backup folder'),
+                  onTap: () => BackupActions.chooseAutoBackupFolder(context, ref),
+                ),
+              ],
+              const Divider(indent: 56),
               ListTile(
                 leading: const Icon(Symbols.backup_rounded),
                 title: const Text('Back up now'),
@@ -153,6 +190,16 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
         ],
+        const SizedBox(height: Space.s5),
+        const _SectionLabel('Help'),
+        Card(
+          child: ListTile(
+            leading: const Icon(Symbols.bug_report_rounded),
+            title: const Text('Export diagnostics'),
+            subtitle: const Text('Errors logged on this phone, to share if something goes wrong'),
+            onTap: () => BackupActions.exportDiagnostics(context),
+          ),
+        ),
         const SizedBox(height: Space.s5),
         const _SectionLabel('About'),
         const Card(

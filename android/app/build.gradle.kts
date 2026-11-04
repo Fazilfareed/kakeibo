@@ -52,4 +52,6 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    // AppCompat themes keep the biometric prompt from crashing on Android 8 (local_auth).
+    implementation("androidx.appcompat:appcompat:1.7.0")
 }

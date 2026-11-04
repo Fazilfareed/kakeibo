@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +8,9 @@ import '../../../app/router.dart';
 import '../../../app/theme/kakeibo_colors.dart';
 import '../../../app/theme/kakeibo_text.dart';
 import '../../../app/theme/tokens.dart';
+import '../../../core/dev/sample_month.dart';
+import '../../../core/db/database_provider.dart';
+import '../../checkin/data/checkin_providers.dart';
 import '../data/settings_repository.dart';
 import '../domain/app_preferences.dart';
 
@@ -18,6 +22,7 @@ class SettingsScreen extends ConsumerWidget {
     final c = context.colors;
     final themeMode = ref.watch(themeModeProvider);
     final formatter = ref.watch(moneyFormatterProvider);
+    final weekStart = ref.watch(weekStartDayProvider);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(Space.gutter, Space.s3, Space.gutter, 96),
@@ -35,6 +40,36 @@ class SettingsScreen extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: Space.s5),
+        const _SectionLabel('Routine'),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(Space.s4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Week starts on', style: context.text.titleMedium),
+                const SizedBox(height: Space.s1),
+                Text('Used for the weekly check-in.', style: context.text.bodySmall),
+                const SizedBox(height: Space.s3),
+                SizedBox(
+                  width: double.infinity,
+                  child: SegmentedButton<int>(
+                    showSelectedIcon: false,
+                    segments: const [
+                      ButtonSegment(value: DateTime.monday, label: Text('Monday')),
+                      ButtonSegment(value: DateTime.saturday, label: Text('Saturday')),
+                      ButtonSegment(value: DateTime.sunday, label: Text('Sunday')),
+                    ],
+                    selected: {weekStart},
+                    onSelectionChanged: (s) =>
+                        ref.read(settingsRepositoryProvider).set('week_start_day', '${s.first}'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: Space.s5),
         const _SectionLabel('Appearance'),
         Card(
           child: Padding(
@@ -49,21 +84,9 @@ class SettingsScreen extends ConsumerWidget {
                   child: SegmentedButton<ThemeMode>(
                     showSelectedIcon: false,
                     segments: const [
-                      ButtonSegment(
-                        value: ThemeMode.system,
-                        label: Text('System'),
-                        icon: Icon(Symbols.smartphone_rounded),
-                      ),
-                      ButtonSegment(
-                        value: ThemeMode.light,
-                        label: Text('Light'),
-                        icon: Icon(Symbols.light_mode_rounded),
-                      ),
-                      ButtonSegment(
-                        value: ThemeMode.dark,
-                        label: Text('Dark'),
-                        icon: Icon(Symbols.dark_mode_rounded),
-                      ),
+                      ButtonSegment(value: ThemeMode.system, label: Text('System')),
+                      ButtonSegment(value: ThemeMode.light, label: Text('Light')),
+                      ButtonSegment(value: ThemeMode.dark, label: Text('Dark')),
                     ],
                     selected: {themeMode},
                     onSelectionChanged: (s) =>
@@ -74,6 +97,26 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
         ),
+        if (kDebugMode) ...[
+          const SizedBox(height: Space.s5),
+          const _SectionLabel('Developer (debug builds only)'),
+          Card(
+            child: ListTile(
+              leading: const Icon(Symbols.science_rounded),
+              title: const Text('Add a sample past month'),
+              subtitle: const Text('Creates a closed month with spends, to try the reflection.'),
+              onTap: () async {
+                final messenger = ScaffoldMessenger.of(context);
+                final added = await SampleMonth.add(ref.read(appDatabaseProvider));
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(added ? 'Sample month added.' : 'A sample month already exists.'),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
         const SizedBox(height: Space.s5),
         const _SectionLabel('About'),
         const Card(

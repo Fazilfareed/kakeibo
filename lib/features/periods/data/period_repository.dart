@@ -82,7 +82,8 @@ class PeriodRepository {
       .customSelect(
         'SELECT r.improvement FROM reflections r '
         'JOIN periods p ON p.id = r.period_id '
-        'WHERE p.start_date < ? ORDER BY p.start_date DESC LIMIT 1',
+        'WHERE p.start_date < ? AND r.completed_at IS NOT NULL '
+        'ORDER BY p.start_date DESC LIMIT 1',
         variables: [Variable.withString(current.startDate)],
         readsFrom: {_db.reflections, _db.periods},
       )

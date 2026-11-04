@@ -53,10 +53,10 @@ class ExpenseRepository {
 
   static const Duration purgeAfter = Duration(days: 30);
 
-  Future<int> add(ExpenseDraft draft) async {
+  Future<int> add(ExpenseDraft draft) => _db.transaction(() async {
     final periodId = await _periodIdFor(draft.date);
     final stamp = LocalDate.nowStamp();
-    return _db
+    final id = await _db
         .into(_db.expenses)
         .insert(
           ExpensesCompanion.insert(
@@ -71,9 +71,12 @@ class ExpenseRepository {
             updatedAt: stamp,
           ),
         );
-  }
+    await _trackFrozen(periodId, draft.amount);
+    return id;
+  });
 
-  Future<void> update(int id, ExpenseDraft draft) async {
+  Future<void> update(int id, ExpenseDraft draft) => _db.transaction(() async {
+    final old = await _byId(id);
     final periodId = await _periodIdFor(draft.date);
     await (_db.update(_db.expenses)..where((e) => e.id.equals(id))).write(
       ExpensesCompanion(
@@ -87,12 +90,25 @@ class ExpenseRepository {
         updatedAt: Value(LocalDate.nowStamp()),
       ),
     );
-  }
+    if (old.deletedAt == null) await _trackFrozen(old.periodId, -_net(old));
+    final net = old.type == 'refund' ? -draft.amount : draft.amount;
+    if (old.deletedAt == null) await _trackFrozen(periodId, net);
+  });
 
   /// Hides an expense; [restore] brings it back (undo, FR-24).
-  Future<void> softDelete(int id) => _setDeleted(id, LocalDate.nowStamp());
+  Future<void> softDelete(int id) => _db.transaction(() async {
+    final old = await _byId(id);
+    if (old.deletedAt != null) return;
+    await _setDeleted(id, LocalDate.nowStamp());
+    await _trackFrozen(old.periodId, -_net(old));
+  });
 
-  Future<void> restore(int id) => _setDeleted(id, null);
+  Future<void> restore(int id) => _db.transaction(() async {
+    final old = await _byId(id);
+    if (old.deletedAt == null) return;
+    await _setDeleted(id, null);
+    await _trackFrozen(old.periodId, _net(old));
+  });
 
   /// Permanently removes soft-deleted rows older than [purgeAfter].
   Future<int> purgeDeleted({DateTime? now}) {
@@ -145,6 +161,23 @@ class ExpenseRepository {
           .watch();
 
   // ---------------------------------------------------------------------------
+
+  Future<Expense> _byId(int id) =>
+      (_db.select(_db.expenses)..where((e) => e.id.equals(id))).getSingle();
+
+  static int _net(Expense e) => e.type == 'refund' ? -e.amount : e.amount;
+
+  /// FR-58: once a period's reflection is completed its totals are frozen, and
+  /// later changes to its spending are added up in `edited_after_close`.
+  Future<void> _trackFrozen(int periodId, int spendDelta) async {
+    if (spendDelta == 0) return;
+    await _db.customUpdate(
+      'UPDATE reflections SET edited_after_close = edited_after_close + ? '
+      'WHERE period_id = ? AND completed_at IS NOT NULL',
+      variables: [Variable.withInt(spendDelta), Variable.withInt(periodId)],
+      updates: {_db.reflections},
+    );
+  }
 
   Future<void> _setDeleted(int id, String? stamp) =>
       (_db.update(_db.expenses)..where((e) => e.id.equals(id))).write(

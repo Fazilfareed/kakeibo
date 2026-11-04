@@ -32,7 +32,16 @@ class HistoryScreen extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(Space.gutter, Space.s3, Space.gutter, 96),
       children: [
-        Text('History', style: context.text.headlineSmall),
+        Row(
+          children: [
+            Expanded(child: Text('History', style: context.text.headlineSmall)),
+            TextButton.icon(
+              onPressed: () => context.push(Routes.stats),
+              icon: const Icon(Symbols.insights_rounded, size: IconSizes.sm),
+              label: const Text('My stats'),
+            ),
+          ],
+        ),
         if (months == null)
           const SizedBox.shrink()
         else if (closed.isEmpty) ...[

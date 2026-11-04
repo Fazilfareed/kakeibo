@@ -110,10 +110,11 @@ class BackupRepository {
 
   Future<String> encode() async => const JsonEncoder.withIndent(' ').convert(await toJson());
 
-  static String fileName([DateTime? now]) {
+  /// Sorts by name in time order: kakeibo-backup-2026-11-04-1747.json.
+  static String fileName([DateTime? now, String prefix = 'kakeibo-backup-']) {
     final t = now ?? DateTime.now();
     String two(int n) => n.toString().padLeft(2, '0');
-    return 'kakeibo-backup-${LocalDate.format(t)}-${two(t.hour)}${two(t.minute)}.json';
+    return '$prefix${LocalDate.format(t)}-${two(t.hour)}${two(t.minute)}.json';
   }
 
   // --------------------------------------------------------------- restore

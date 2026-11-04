@@ -9,6 +9,7 @@ import '../features/periods/presentation/plan_month_screen.dart';
 import '../features/reflection/presentation/reflection_screen.dart';
 import '../features/settings/presentation/currency_format_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
+import '../features/stats/presentation/stats_screen.dart';
 import '../features/transactions/presentation/transactions_screen.dart';
 import 'shell/app_shell.dart';
 
@@ -20,6 +21,7 @@ abstract final class Routes {
   static const currencyFormat = '/settings/currency';
   static const plan = '/plan';
   static const checkin = '/checkin';
+  static const stats = '/stats';
   static String reflect(int periodId) => '/reflect/$periodId';
   static String month(int periodId) => '/history/$periodId';
 }
@@ -36,6 +38,11 @@ GoRouter buildRouter() {
         path: Routes.plan,
         parentNavigatorKey: _rootKey,
         builder: (_, _) => const PlanMonthScreen(),
+      ),
+      GoRoute(
+        path: Routes.stats,
+        parentNavigatorKey: _rootKey,
+        builder: (_, _) => const StatsScreen(),
       ),
       GoRoute(
         path: Routes.checkin,

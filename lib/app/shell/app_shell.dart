@@ -84,6 +84,8 @@ class _NavItem extends StatelessWidget {
       button: true,
       selected: selected,
       label: label,
+      // Excluding the child's semantics hides its tap, so add it here.
+      onTap: onTap,
       excludeSemantics: true,
       child: InkResponse(
         onTap: onTap,

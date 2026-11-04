@@ -12,9 +12,12 @@ import '../../../core/date/local_date.dart';
 import '../../../core/db/app_database.dart';
 import '../../../core/money/money_text.dart';
 import '../../../core/pillars/pillars_provider.dart';
+import '../../backup/data/auto_backup.dart';
+import '../../backup/presentation/backup_actions.dart';
 import '../../checkin/data/checkin_providers.dart';
 import '../../expenses/data/expense_providers.dart';
 import '../../expenses/presentation/expense_tile.dart';
+import '../../history/data/history_providers.dart';
 import '../../periods/data/period_providers.dart';
 import '../../periods/domain/period_summary.dart';
 import '../../reflection/data/reflection_providers.dart';
@@ -60,6 +63,13 @@ class DashboardScreen extends ConsumerWidget {
     if (period == null || summary == null) return const _Skeleton();
 
     final improvement = ref.watch(currentImprovementProvider).value;
+    final settings = ref.watch(settingsProvider).value ?? const <String, String>{};
+    final months = ref.watch(historyMonthsProvider).value;
+    final firstUse = months == null || months.isEmpty
+        ? null
+        : LocalDate.parse(months.last.period.startDate);
+    final lastBackup = AutoBackup.lastBackup(settings);
+    final backupStale = AutoBackup.isStale(settings, DateTime.now(), firstUse: firstUse);
     final pending = ref.watch(pendingReflectionProvider).value;
     ref.watch(settingsProvider);
     _autoOpenReflection(context, ref, pending);
@@ -102,6 +112,19 @@ class DashboardScreen extends ConsumerWidget {
                 'Take five quiet minutes to reflect.',
             actionLabel: 'Reflect',
             onAction: () => context.push(Routes.reflect(pending.id)),
+          ),
+          const SizedBox(height: Space.s3),
+        ],
+        if (backupStale) ...[
+          _ActionCard(
+            icon: Symbols.backup_rounded,
+            accent: context.colors.caution,
+            text: lastBackup == null
+                ? 'Back up your data. If this phone is lost, a backup file is the only copy.'
+                : 'Back up your data. The last backup was '
+                      '${DateTime.now().difference(lastBackup).inDays} days ago.',
+            actionLabel: 'Back up',
+            onAction: () => BackupActions.backUp(context, ref),
           ),
           const SizedBox(height: Space.s3),
         ],

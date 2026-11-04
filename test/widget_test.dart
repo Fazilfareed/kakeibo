@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kakeibo/app/app.dart';
+import 'package:kakeibo/app/theme/app_theme.dart';
 import 'package:kakeibo/core/date/local_date.dart';
 import 'package:kakeibo/core/db/app_database.dart';
 import 'package:kakeibo/core/money/money_text.dart';
 import 'package:kakeibo/core/pillars/pillars_provider.dart';
+import 'package:kakeibo/features/backup/data/auto_backup.dart';
 import 'package:kakeibo/features/backup/data/backup_providers.dart';
 import 'package:kakeibo/features/backup/data/backup_repository.dart';
 import 'package:kakeibo/features/checkin/data/checkin_providers.dart';
@@ -13,6 +15,11 @@ import 'package:kakeibo/features/checkin/data/checkin_repository.dart';
 import 'package:kakeibo/features/expenses/data/expense_providers.dart';
 import 'package:kakeibo/features/expenses/data/expense_repository.dart';
 import 'package:kakeibo/features/history/data/history_providers.dart';
+import 'package:kakeibo/features/lock/data/lock_providers.dart';
+import 'package:kakeibo/features/lock/data/lock_repository.dart';
+import 'package:kakeibo/features/lock/presentation/pin_pad.dart';
+import 'package:kakeibo/features/reminders/data/reminder_providers.dart';
+import 'package:kakeibo/features/stats/data/stats_providers.dart';
 import 'package:kakeibo/features/history/data/history_repository.dart';
 import 'package:kakeibo/features/periods/data/period_providers.dart';
 import 'package:kakeibo/features/periods/domain/period_math.dart';
@@ -46,6 +53,17 @@ class _MockCheckins extends Mock implements CheckinRepository {}
 class _MockSettings extends Mock implements SettingsRepository {}
 
 class _MockBackup extends Mock implements BackupRepository {}
+
+class _MemorySecrets implements SecretStore {
+  final _values = <String, String>{};
+
+  @override
+  Future<String?> read(String key) async => _values[key];
+  @override
+  Future<void> write(String key, String value) async => _values[key] = value;
+  @override
+  Future<void> delete(String key) async => _values.remove(key);
+}
 
 Period _period({String status = 'active'}) {
   final today = DateTime.now();
@@ -106,6 +124,7 @@ Widget _app({
   Map<int, int> weekTotals = const {},
   List<MonthRecord> history = const [],
   BackupRepository? backup,
+  LockRepository? lock,
 }) {
   final period = _period(status: status);
   final settingsRepo = _MockSettings();
@@ -130,6 +149,12 @@ Widget _app({
         reflectionSummaryProvider.overrideWith((ref, id) async => reflectionSummary),
       if (checkins != null) checkinRepositoryProvider.overrideWithValue(checkins),
       historyMonthsProvider.overrideWith((ref) => Stream.value(history)),
+      spendDatesProvider.overrideWith((ref) => Stream.value(const <String>[])),
+      reminderSyncProvider.overrideWithValue(null),
+      notificationsAllowedProvider.overrideWith((ref) async => true),
+      biometricsAvailableProvider.overrideWith((ref) async => false),
+      autoBackupRunProvider.overrideWith((ref) async => AutoBackupOutcome.notDue),
+      if (lock != null) lockRepositoryProvider.overrideWithValue(lock),
       if (backup != null) backupRepositoryProvider.overrideWithValue(backup),
     ],
     child: const KakeiboApp(),
@@ -580,5 +605,145 @@ void main() {
       await tester.pumpAndSettle();
       verifyNever(() => repo.deleteAll());
     });
+  });
+
+  group('M5 app lock', () {
+    LockRepository lockRepo() => LockRepository(
+      _MemorySecrets(),
+      hasher: (secret, salt) async => '$salt:$secret'.hashCode.toString(),
+    );
+
+    Future<void> enter(WidgetTester tester, String pin) async {
+      for (final d in pin.split('')) {
+        await tester.tap(find.bySemanticsLabel(d).last);
+        await tester.pump();
+      }
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    testWidgets('a locked app hides Home until the right PIN', (tester) async {
+      _phoneScreen(tester);
+      final lock = lockRepo();
+      await lock.setPin('2580');
+      await tester.pumpWidget(
+        _app(lock: lock, settings: {...AppDatabase.defaultSettings, 'lock_enabled': 'true'}),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Kakeibo is locked'), findsOneWidget);
+      expect(find.text('Left to spend'), findsNothing, reason: 'Home is not shown or read out');
+
+      await enter(tester, '1111');
+      expect(find.text('Wrong PIN. 4 tries left.'), findsOneWidget);
+
+      await enter(tester, '2580');
+      await tester.pumpAndSettle();
+      expect(find.text('Kakeibo is locked'), findsNothing);
+      expect(find.text('Left to spend'), findsOneWidget);
+    });
+
+    testWidgets('forgot PIN: the recovery code leads to a new PIN', (tester) async {
+      _phoneScreen(tester);
+      final lock = lockRepo();
+      final code = await lock.setPin('2580');
+      await tester.pumpWidget(
+        _app(lock: lock, settings: {...AppDatabase.defaultSettings, 'lock_enabled': 'true'}),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Forgot PIN?'));
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.enterText(find.byType(TextField), code.toLowerCase());
+      await tester.tap(find.text('Continue'));
+      for (var i = 0; i < 5; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.text('Choose a PIN'), findsOneWidget);
+    });
+
+    testWidgets('turning the lock on walks through PIN and recovery code', (tester) async {
+      _phoneScreen(tester);
+      final lock = lockRepo();
+      await tester.pumpWidget(_app(lock: lock));
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel('Settings'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('App lock'), 300);
+      await tester.ensureVisible(find.text('App lock'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('App lock'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Choose a PIN'), findsOneWidget);
+      await enter(tester, '1234');
+      await tester.tap(find.text('Next'));
+      await tester.pump();
+      expect(find.text('Type it again'), findsOneWidget);
+      await enter(tester, '1235');
+      expect(find.text('The PINs didn’t match. Choose your PIN again.'), findsOneWidget);
+
+      await enter(tester, '1234');
+      await tester.tap(find.text('Next'));
+      await tester.pump();
+      await enter(tester, '1234');
+      await tester.pumpAndSettle();
+      expect(find.text('Your recovery code'), findsOneWidget);
+      final code = tester.widget<SelectableText>(find.byType(SelectableText)).data!;
+
+      await tester.tap(find.text('I’ve written it down'));
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.enterText(find.byType(TextField), 'WRONG-CODE-0000');
+      await tester.tap(find.text('Confirm'));
+      await tester.pump();
+      expect(find.textContaining('doesn’t match'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), code);
+      await tester.tap(find.text('Confirm'));
+      for (var i = 0; i < 6; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.text('App lock is on.'), findsOneWidget);
+      expect(await lock.checkPin('1234'), isA<Unlocked>());
+    });
+  });
+
+  testWidgets('screen readers can activate tabs, pillar tiles, bars and PIN keys', (tester) async {
+    _phoneScreen(tester);
+    final handle = tester.ensureSemantics();
+    final repo = _MockExpenses();
+    when(() => repo.recentNotes()).thenAnswer((_) async => const <String>[]);
+    await tester.pumpWidget(_app(expenses: repo));
+    await tester.pumpAndSettle();
+
+    for (final tab in ['Home', 'Spends', 'History', 'Settings']) {
+      expect(
+        tester.getSemantics(find.bySemanticsLabel(tab).first),
+        isSemantics(hasTapAction: true),
+      );
+    }
+    expect(
+      tester.getSemantics(find.bySemanticsLabel(RegExp(r'^Needs, ')).first),
+      isSemantics(hasTapAction: true),
+    );
+
+    await tester.tap(find.byTooltip('Add expense'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(
+      tester.getSemantics(find.bySemanticsLabel('Wants').last),
+      isSemantics(hasTapAction: true),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildTheme(Brightness.light),
+        home: Scaffold(
+          body: PinPad(onDigit: (_) {}, onBackspace: () {}),
+        ),
+      ),
+    );
+    expect(tester.getSemantics(find.bySemanticsLabel('7')), isSemantics(hasTapAction: true));
+    expect(tester.getSemantics(find.bySemanticsLabel('Delete')), isSemantics(hasTapAction: true));
+    handle.dispose();
   });
 }

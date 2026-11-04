@@ -17,3 +17,6 @@ linter:
     prefer_const_constructors: true
     avoid_catching_errors: true
     use_super_parameters: true
+
+formatter:
+  page_width: 100

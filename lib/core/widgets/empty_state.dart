@@ -27,7 +27,9 @@ class EmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          ExcludeSemantics(child: Icon(icon, size: IconSizes.xl, color: c.ink3)),
+          ExcludeSemantics(
+            child: Icon(icon, size: IconSizes.xl, color: c.ink3),
+          ),
           const SizedBox(height: Space.s4),
           Text(title, style: context.text.titleLarge, textAlign: TextAlign.center),
           const SizedBox(height: Space.s2),
@@ -36,10 +38,7 @@ class EmptyState extends StatelessWidget {
             style: context.text.bodyMedium?.copyWith(color: c.ink2),
             textAlign: TextAlign.center,
           ),
-          if (action != null) ...[
-            const SizedBox(height: Space.s5),
-            action!,
-          ],
+          if (action != null) ...[const SizedBox(height: Space.s5), action!],
         ],
       ),
     );

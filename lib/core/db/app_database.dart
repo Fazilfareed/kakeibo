@@ -36,28 +36,56 @@ class AppDatabase extends _$AppDatabase {
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-        onCreate: (m) async {
-          await m.createAll();
-          await _seed();
-        },
-        beforeOpen: (details) async {
-          await customStatement('PRAGMA foreign_keys = ON');
-        },
-      );
+    onCreate: (m) async {
+      await m.createAll();
+      await _seed();
+    },
+    beforeOpen: (details) async {
+      await customStatement('PRAGMA foreign_keys = ON');
+    },
+  );
 
   /// Default pillars, payment methods and settings for a fresh install.
   Future<void> _seed() async {
     await batch((b) {
       b.insertAll(pillars, const [
-        PillarsCompanion(id: Value(1), name: Value('Needs'), icon: Value('houseLine'), sortOrder: Value(1)),
-        PillarsCompanion(id: Value(2), name: Value('Wants'), icon: Value('shoppingBag'), sortOrder: Value(2)),
-        PillarsCompanion(id: Value(3), name: Value('Culture'), icon: Value('bookOpen'), sortOrder: Value(3)),
-        PillarsCompanion(id: Value(4), name: Value('Unexpected'), icon: Value('lightning'), sortOrder: Value(4)),
+        PillarsCompanion(
+          id: Value(1),
+          name: Value('Needs'),
+          icon: Value('houseLine'),
+          sortOrder: Value(1),
+        ),
+        PillarsCompanion(
+          id: Value(2),
+          name: Value('Wants'),
+          icon: Value('shoppingBag'),
+          sortOrder: Value(2),
+        ),
+        PillarsCompanion(
+          id: Value(3),
+          name: Value('Culture'),
+          icon: Value('bookOpen'),
+          sortOrder: Value(3),
+        ),
+        PillarsCompanion(
+          id: Value(4),
+          name: Value('Unexpected'),
+          icon: Value('lightning'),
+          sortOrder: Value(4),
+        ),
       ]);
       b.insertAll(paymentMethods, const [
         PaymentMethodsCompanion(name: Value('Cash'), icon: Value('money'), sortOrder: Value(1)),
-        PaymentMethodsCompanion(name: Value('Card'), icon: Value('creditCard'), sortOrder: Value(2)),
-        PaymentMethodsCompanion(name: Value('Bank transfer'), icon: Value('bank'), sortOrder: Value(3)),
+        PaymentMethodsCompanion(
+          name: Value('Card'),
+          icon: Value('creditCard'),
+          sortOrder: Value(2),
+        ),
+        PaymentMethodsCompanion(
+          name: Value('Bank transfer'),
+          icon: Value('bank'),
+          sortOrder: Value(3),
+        ),
         PaymentMethodsCompanion(name: Value('LankaQR'), icon: Value('qrCode'), sortOrder: Value(4)),
       ]);
       b.insertAll(settings, [

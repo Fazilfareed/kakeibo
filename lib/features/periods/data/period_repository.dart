@@ -60,11 +60,9 @@ class PeriodRepository {
         return _insertPeriod(PeriodMath.rangeContaining(today, startDay));
       }
       while (today.isAfter(LocalDate.parse(latest!.endDate))) {
-        await (_db.update(_db.periods)..where((p) => p.id.equals(latest!.id)))
-            .write(PeriodsCompanion(
-          status: const Value('closed'),
-          updatedAt: Value(LocalDate.nowStamp()),
-        ));
+        await (_db.update(_db.periods)..where((p) => p.id.equals(latest!.id))).write(
+          PeriodsCompanion(status: const Value('closed'), updatedAt: Value(LocalDate.nowStamp())),
+        );
         latest = await _createNextFrom(latest);
       }
       return latest;
@@ -72,25 +70,43 @@ class PeriodRepository {
   }
 
   /// The most recent period (the current one once [ensureCurrentPeriod] ran).
-  Stream<Period?> watchLatest() => (_db.select(_db.periods)
-        ..orderBy([(p) => OrderingTerm.desc(p.startDate)])
-        ..limit(1))
-      .watchSingleOrNull();
+  Stream<Period?> watchLatest() =>
+      (_db.select(_db.periods)
+            ..orderBy([(p) => OrderingTerm.desc(p.startDate)])
+            ..limit(1))
+          .watchSingleOrNull();
+
+  /// FR-37/54: the improvement chosen in the previous period's reflection,
+  /// shown on this period's dashboard. Null if none was set.
+  Stream<String?> watchImprovementFor(Period current) => _db
+      .customSelect(
+        'SELECT r.improvement FROM reflections r '
+        'JOIN periods p ON p.id = r.period_id '
+        'WHERE p.start_date < ? ORDER BY p.start_date DESC LIMIT 1',
+        variables: [Variable.withString(current.startDate)],
+        readsFrom: {_db.reflections, _db.periods},
+      )
+      .watchSingleOrNull()
+      .map((row) {
+        final text = row?.readNullable<String>('improvement')?.trim();
+        return text == null || text.isEmpty ? null : text;
+      });
 
   Future<PeriodPlan> loadPlan(int periodId) async {
-    final period = await (_db.select(_db.periods)..where((p) => p.id.equals(periodId)))
-        .getSingle();
-    final incomes = await (_db.select(_db.incomes)
-          ..where((i) => i.periodId.equals(periodId))
-          ..orderBy([(i) => OrderingTerm.asc(i.id)]))
-        .get();
-    final fixed = await (_db.select(_db.fixedCosts)
-          ..where((f) => f.periodId.equals(periodId))
-          ..orderBy([(f) => OrderingTerm.asc(f.id)]))
-        .get();
-    final budgets = await (_db.select(_db.pillarBudgets)
-          ..where((b) => b.periodId.equals(periodId)))
-        .get();
+    final period = await (_db.select(_db.periods)..where((p) => p.id.equals(periodId))).getSingle();
+    final incomes =
+        await (_db.select(_db.incomes)
+              ..where((i) => i.periodId.equals(periodId))
+              ..orderBy([(i) => OrderingTerm.asc(i.id)]))
+            .get();
+    final fixed =
+        await (_db.select(_db.fixedCosts)
+              ..where((f) => f.periodId.equals(periodId))
+              ..orderBy([(f) => OrderingTerm.asc(f.id)]))
+            .get();
+    final budgets = await (_db.select(
+      _db.pillarBudgets,
+    )..where((b) => b.periodId.equals(periodId))).get();
     return PeriodPlan(
       period: period,
       incomes: incomes,
@@ -102,8 +118,9 @@ class PeriodRepository {
   /// The plan, reloaded whenever any of its tables change.
   Stream<PeriodPlan> watchPlan(int periodId) async* {
     yield await loadPlan(periodId);
-    await for (final _ in _db.tableUpdates(TableUpdateQuery.onAllTables(
-        [_db.periods, _db.incomes, _db.fixedCosts, _db.pillarBudgets]))) {
+    await for (final _ in _db.tableUpdates(
+      TableUpdateQuery.onAllTables([_db.periods, _db.incomes, _db.fixedCosts, _db.pillarBudgets]),
+    )) {
       yield await loadPlan(periodId);
     }
   }
@@ -112,13 +129,14 @@ class PeriodRepository {
   /// pillar budgets, and marks the period active.
   Future<void> savePlan(int periodId, PlanDraft draft) {
     return _db.transaction(() async {
-      final period = await (_db.select(_db.periods)..where((p) => p.id.equals(periodId)))
-          .getSingle();
+      final period = await (_db.select(
+        _db.periods,
+      )..where((p) => p.id.equals(periodId))).getSingle();
       final stamp = LocalDate.nowStamp();
 
-      await (_db.delete(_db.incomes)
-            ..where((i) => i.periodId.equals(periodId) & i.isPlanned.equals(true)))
-          .go();
+      await (_db.delete(
+        _db.incomes,
+      )..where((i) => i.periodId.equals(periodId) & i.isPlanned.equals(true))).go();
       await (_db.delete(_db.fixedCosts)..where((f) => f.periodId.equals(periodId))).go();
 
       await _db.batch((b) {
@@ -151,13 +169,17 @@ class PeriodRepository {
       });
 
       if (period.savingsGoal != draft.savingsGoal && period.status != 'planning') {
-        await _db.into(_db.planChanges).insert(PlanChangesCompanion.insert(
-              periodId: periodId,
-              field: 'savings_goal',
-              oldValue: Value('${period.savingsGoal}'),
-              newValue: Value('${draft.savingsGoal}'),
-              changedAt: stamp,
-            ));
+        await _db
+            .into(_db.planChanges)
+            .insert(
+              PlanChangesCompanion.insert(
+                periodId: periodId,
+                field: 'savings_goal',
+                oldValue: Value('${period.savingsGoal}'),
+                newValue: Value('${draft.savingsGoal}'),
+                changedAt: stamp,
+              ),
+            );
       }
 
       await (_db.update(_db.periods)..where((p) => p.id.equals(periodId))).write(
@@ -174,48 +196,52 @@ class PeriodRepository {
   /// FR-18: the user has moved this month's savings aside.
   Future<void> setSavingsSetAside(int periodId, bool value) =>
       (_db.update(_db.periods)..where((p) => p.id.equals(periodId))).write(
-        PeriodsCompanion(
-          savingsSetAside: Value(value),
-          updatedAt: Value(LocalDate.nowStamp()),
-        ),
+        PeriodsCompanion(savingsSetAside: Value(value), updatedAt: Value(LocalDate.nowStamp())),
       );
 
   // ---------------------------------------------------------------------------
 
-  Future<Period?> _latest() => (_db.select(_db.periods)
-        ..orderBy([(p) => OrderingTerm.desc(p.startDate)])
-        ..limit(1))
-      .getSingleOrNull();
+  Future<Period?> _latest() =>
+      (_db.select(_db.periods)
+            ..orderBy([(p) => OrderingTerm.desc(p.startDate)])
+            ..limit(1))
+          .getSingleOrNull();
 
   Future<int> _monthStartDay() async {
-    final row = await (_db.select(_db.settings)
-          ..where((s) => s.key.equals('month_start_day')))
-        .getSingleOrNull();
+    final row = await (_db.select(
+      _db.settings,
+    )..where((s) => s.key.equals('month_start_day'))).getSingleOrNull();
     return int.tryParse(row?.value ?? '') ?? 1;
   }
 
   Future<Period> _insertPeriod(DateRange range, {int savingsGoal = 0}) async {
     final stamp = LocalDate.nowStamp();
-    final id = await _db.into(_db.periods).insert(PeriodsCompanion.insert(
-          startDate: LocalDate.format(range.start),
-          endDate: LocalDate.format(range.end),
-          savingsGoal: Value(savingsGoal),
-          createdAt: stamp,
-          updatedAt: stamp,
-        ));
-    await _db.batch((b) => b.insertAll(_db.pillarBudgets, [
-          for (final p in _pillarIds)
-            PillarBudgetsCompanion.insert(periodId: id, pillarId: p),
-        ]));
+    final id = await _db
+        .into(_db.periods)
+        .insert(
+          PeriodsCompanion.insert(
+            startDate: LocalDate.format(range.start),
+            endDate: LocalDate.format(range.end),
+            savingsGoal: Value(savingsGoal),
+            createdAt: stamp,
+            updatedAt: stamp,
+          ),
+        );
+    await _db.batch(
+      (b) => b.insertAll(_db.pillarBudgets, [
+        for (final p in _pillarIds) PillarBudgetsCompanion.insert(periodId: id, pillarId: p),
+      ]),
+    );
     return (_db.select(_db.periods)..where((p) => p.id.equals(id))).getSingle();
   }
 
   /// Creates the period after [previous], pre-filled from its plan (FR-56).
   Future<Period> _createNextFrom(Period previous) async {
     final prevRange = DateRange(
-        LocalDate.parse(previous.startDate), LocalDate.parse(previous.endDate));
-    final next = await _insertPeriod(PeriodMath.next(prevRange),
-        savingsGoal: previous.savingsGoal);
+      LocalDate.parse(previous.startDate),
+      LocalDate.parse(previous.endDate),
+    );
+    final next = await _insertPeriod(PeriodMath.next(prevRange), savingsGoal: previous.savingsGoal);
     final plan = await loadPlan(previous.id);
 
     await _db.batch((b) {
@@ -230,11 +256,7 @@ class PeriodRepository {
       ]);
       b.insertAll(_db.fixedCosts, [
         for (final f in plan.fixedCosts.where((f) => f.isRecurring))
-          FixedCostsCompanion.insert(
-            periodId: next.id,
-            label: f.label,
-            amount: f.amount,
-          ),
+          FixedCostsCompanion.insert(periodId: next.id, label: f.label, amount: f.amount),
       ]);
       b.insertAllOnConflictUpdate(_db.pillarBudgets, [
         for (final e in plan.budgets.entries)

@@ -38,8 +38,9 @@ void main() {
 
   group('CurrencyFormat (FR-109)', () {
     test('symbol after the number, without space', () {
-      final f = MoneyFormatter(const CurrencyFormat(
-          symbol: 'LKR', position: SymbolPosition.after, space: false));
+      final f = MoneyFormatter(
+        const CurrencyFormat(symbol: 'LKR', position: SymbolPosition.after, space: false),
+      );
       expect(f.formatCents(1250000), '12,500.00LKR');
     });
 

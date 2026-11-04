@@ -178,8 +178,7 @@ class KakeiboColors extends ThemeExtension<KakeiboColors> {
       success: l(success, other.success),
       info: l(info, other.info),
       scrim: l(scrim, other.scrim),
-      containerTint:
-          containerTint + (other.containerTint - containerTint) * t,
+      containerTint: containerTint + (other.containerTint - containerTint) * t,
     );
   }
 }

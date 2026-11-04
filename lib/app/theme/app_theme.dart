@@ -8,9 +8,7 @@ import 'tokens.dart';
 
 /// Builds the light or dark Material theme from the design-system tokens.
 ThemeData buildTheme(Brightness brightness) {
-  final c = brightness == Brightness.light
-      ? KakeiboColors.light
-      : KakeiboColors.dark;
+  final c = brightness == Brightness.light ? KakeiboColors.light : KakeiboColors.dark;
   final text = buildTextTheme(c.ink, c.ink2);
 
   final scheme = ColorScheme(
@@ -42,9 +40,7 @@ ThemeData buildTheme(Brightness brightness) {
     borderRadius: BorderRadius.circular(Radii.md),
     side: BorderSide(color: c.divider),
   );
-  final buttonShape = RoundedRectangleBorder(
-    borderRadius: BorderRadius.circular(Radii.md),
-  );
+  final buttonShape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.md));
   const buttonSize = Size(Space.minTouch, 52);
 
   return ThemeData(
@@ -127,8 +123,7 @@ ThemeData buildTheme(Brightness brightness) {
     ),
     snackBarTheme: SnackBarThemeData(
       backgroundColor: c.ink,
-      contentTextStyle:
-          fontStyle(Fonts.ui, size: 14, height: 20, weight: 400, color: c.bg),
+      contentTextStyle: fontStyle(Fonts.ui, size: 14, height: 20, weight: 400, color: c.bg),
       actionTextColor: c.bg,
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.sm)),

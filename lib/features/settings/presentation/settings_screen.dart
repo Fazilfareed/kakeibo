@@ -49,14 +49,25 @@ class SettingsScreen extends ConsumerWidget {
                   child: SegmentedButton<ThemeMode>(
                     showSelectedIcon: false,
                     segments: const [
-                      ButtonSegment(value: ThemeMode.system, label: Text('System'), icon: Icon(Symbols.smartphone_rounded)),
-                      ButtonSegment(value: ThemeMode.light, label: Text('Light'), icon: Icon(Symbols.light_mode_rounded)),
-                      ButtonSegment(value: ThemeMode.dark, label: Text('Dark'), icon: Icon(Symbols.dark_mode_rounded)),
+                      ButtonSegment(
+                        value: ThemeMode.system,
+                        label: Text('System'),
+                        icon: Icon(Symbols.smartphone_rounded),
+                      ),
+                      ButtonSegment(
+                        value: ThemeMode.light,
+                        label: Text('Light'),
+                        icon: Icon(Symbols.light_mode_rounded),
+                      ),
+                      ButtonSegment(
+                        value: ThemeMode.dark,
+                        label: Text('Dark'),
+                        icon: Icon(Symbols.dark_mode_rounded),
+                      ),
                     ],
                     selected: {themeMode},
-                    onSelectionChanged: (s) => ref
-                        .read(settingsRepositoryProvider)
-                        .set(themeKey, s.first.name),
+                    onSelectionChanged: (s) =>
+                        ref.read(settingsRepositoryProvider).set(themeKey, s.first.name),
                   ),
                 ),
               ],
@@ -88,8 +99,10 @@ class _SectionLabel extends StatelessWidget {
       padding: const EdgeInsets.only(left: Space.s1, bottom: Space.s2),
       child: Semantics(
         header: true,
-        child: Text(text.toUpperCase(),
-            style: context.text.labelSmall?.copyWith(letterSpacing: 1.2)),
+        child: Text(
+          text.toUpperCase(),
+          style: context.text.labelSmall?.copyWith(letterSpacing: 1.2),
+        ),
       ),
     );
   }

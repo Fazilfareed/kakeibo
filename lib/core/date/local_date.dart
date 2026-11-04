@@ -15,9 +15,7 @@ abstract final class LocalDate {
 
   /// Whole days from [a] to [b] (b − a), ignoring daylight-saving shifts.
   static int daysBetween(DateTime a, DateTime b) =>
-      DateTime.utc(b.year, b.month, b.day)
-          .difference(DateTime.utc(a.year, a.month, a.day))
-          .inDays;
+      DateTime.utc(b.year, b.month, b.day).difference(DateTime.utc(a.year, a.month, a.day)).inDays;
 
   /// UTC timestamp for `created_at` / `updated_at` columns.
   static String nowStamp() => DateTime.now().toUtc().toIso8601String();

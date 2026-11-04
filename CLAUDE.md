@@ -20,7 +20,7 @@ The source of truth is `Kakeibo_PRD_Architecture.md` (v1.2). When a skill's gene
 
 ## Build & run (Windows, this PC)
 - Flutter SDK: `F:\dev\flutter` · JDK 17: `F:\dev\jdk-17` · Gradle cache: `F:\dev\gradle` (`GRADLE_USER_HOME`) · Android SDK: `%LOCALAPPDATA%\Android\Sdk` (platform 36, build-tools 36, NDK 28.2).
-- Phone: Infinix X6812 (Android 11), device id `072952518G001312`. `flutter build apk --debug` then `flutter install --debug -d 072952518G001312`.
+- Phone: Infinix X6812 (Android 11), device id `072952518G001312`. `flutter build apk --debug`, then `adb -s 072952518G001312 install -r build/app/outputs/flutter-apk/app-debug.apk`. Don't use `flutter install`: it uninstalls first, which wipes the app's data on the phone.
 - `android/gradle.properties` is sized for this 8 GB RAM PC (Gradle 2.5 GB, Kotlin 1.5 GB) and turns off `kotlin.incremental`, because the project (F:) and pub cache (C:) are on different drives. Don't raise those limits.
 - After changing Drift tables: `dart run build_runner build --delete-conflicting-outputs`.
 - Widget tests must not use a real SQLite database (its I/O never completes in fake-async). Override `pillarsProvider`/`settingsProvider` with `Stream.value(...)`, as in `test/widget_test.dart`. Database logic is tested in `test/core/db/` with `NativeDatabase.memory()`.

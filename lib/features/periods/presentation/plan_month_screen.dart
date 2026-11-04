@@ -25,8 +25,8 @@ class PlanMonthScreen extends ConsumerStatefulWidget {
 
 class _Row {
   _Row({String label = '', int cents = 0, this.recurring = true})
-      : label = TextEditingController(text: label),
-        amount = TextEditingController(text: MoneyField.textFor(cents));
+    : label = TextEditingController(text: label),
+      amount = TextEditingController(text: MoneyField.textFor(cents));
 
   final TextEditingController label;
   final TextEditingController amount;
@@ -64,18 +64,30 @@ class _PlanMonthScreenState extends ConsumerState<PlanMonthScreen> {
     setState(() {
       _plan = plan;
       final planned = plan.incomes.where((i) => i.isPlanned).toList();
-      _incomes.addAll(planned.isEmpty
-          ? [_Row(label: 'Salary')]
-          : planned.map((i) => _Row(label: i.label, cents: i.amount)));
-      _fixed.addAll(plan.fixedCosts.isEmpty
-          ? [_Row(label: 'Rent')]
-          : plan.fixedCosts
-              .map((f) => _Row(label: f.label, cents: f.amount, recurring: f.isRecurring)));
+      _incomes.addAll(
+        planned.isEmpty
+            ? [_Row(label: 'Salary')]
+            : planned.map((i) => _Row(label: i.label, cents: i.amount)),
+      );
+      _fixed.addAll(
+        plan.fixedCosts.isEmpty
+            ? [_Row(label: 'Rent')]
+            : plan.fixedCosts.map(
+                (f) => _Row(label: f.label, cents: f.amount, recurring: f.isRecurring),
+              ),
+      );
       _savings.text = MoneyField.textFor(plan.period.savingsGoal);
       for (final e in _budgets.entries) {
         e.value.text = MoneyField.textFor(plan.budgets[e.key] ?? 0);
       }
     });
+  }
+
+  /// The row's fields still use its controllers until the next frame, so
+  /// they are disposed after it.
+  void _removeRow(List<_Row> rows, _Row row) {
+    setState(() => rows.remove(row));
+    WidgetsBinding.instance.addPostFrameCallback((_) => row.dispose());
   }
 
   @override
@@ -129,16 +141,13 @@ class _PlanMonthScreenState extends ConsumerState<PlanMonthScreen> {
             (label: labelOr(r, 'Fixed cost'), amount: r.cents, recurring: r.recurring),
       ],
       savingsGoal: _savingsGoal,
-      budgets: {
-        for (final e in _budgets.entries) e.key: AmountInput.parseCents(e.value.text) ?? 0,
-      },
+      budgets: {for (final e in _budgets.entries) e.key: AmountInput.parseCents(e.value.text) ?? 0},
     );
     await ref.read(periodRepositoryProvider).savePlan(plan.period.id, draft);
     if (!mounted) return;
     Navigator.of(context).pop();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Plan saved. Have a mindful month.')),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Plan saved. Have a mindful month.')));
   }
 
   @override
@@ -162,7 +171,11 @@ class _PlanMonthScreenState extends ConsumerState<PlanMonthScreen> {
                 Expanded(
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(
-                        Space.gutter, Space.s4, Space.gutter, Space.s6),
+                      Space.gutter,
+                      Space.s4,
+                      Space.gutter,
+                      Space.s6,
+                    ),
                     children: [
                       _Section(
                         number: 1,
@@ -173,12 +186,13 @@ class _PlanMonthScreenState extends ConsumerState<PlanMonthScreen> {
                           addLabel: 'Add income',
                           onChanged: _refresh,
                           onAdd: () => setState(() => _incomes.add(_Row())),
-                          onRemove: (r) => setState(() => _incomes.remove(r..dispose())),
+                          onRemove: (r) => _removeRow(_incomes, r),
                         ),
                       ),
                       _Section(
                         title: 'Fixed costs',
-                        hint: 'Bills that are the same every month, like rent, '
+                        hint:
+                            'Bills that are the same every month, like rent, '
                             'loans and subscriptions. They are not logged as spends.',
                         child: _RowList(
                           rows: _fixed,
@@ -186,7 +200,7 @@ class _PlanMonthScreenState extends ConsumerState<PlanMonthScreen> {
                           showRecurring: true,
                           onChanged: _refresh,
                           onAdd: () => setState(() => _fixed.add(_Row())),
-                          onRemove: (r) => setState(() => _fixed.remove(r..dispose())),
+                          onRemove: (r) => _removeRow(_fixed, r),
                         ),
                       ),
                       _Section(
@@ -219,12 +233,18 @@ class _PlanMonthScreenState extends ConsumerState<PlanMonthScreen> {
                 SafeArea(
                   top: false,
                   minimum: const EdgeInsets.fromLTRB(
-                      Space.gutter, Space.s2, Space.gutter, Space.s3),
+                    Space.gutter,
+                    Space.s2,
+                    Space.gutter,
+                    Space.s3,
+                  ),
                   child: SizedBox(
                     width: double.infinity,
                     child: FilledButton(
                       onPressed: _saving ? null : _save,
-                      child: Text(plan.period.status == 'planning' ? 'Start my month' : 'Save plan'),
+                      child: Text(
+                        plan.period.status == 'planning' ? 'Start my month' : 'Save plan',
+                      ),
                     ),
                   ),
                 ),
@@ -253,12 +273,12 @@ class _SpendableHeader extends StatelessWidget {
     final c = context.colors;
     final spendable = income - fixed - savings;
     Widget line(String label, int cents, {String sign = ''}) => Row(
-          children: [
-            Expanded(child: Text(label, style: context.text.bodySmall)),
-            Text(sign, style: context.text.bodySmall),
-            MoneyText(cents, style: context.text.bodySmall, hideZeroDecimals: true),
-          ],
-        );
+      children: [
+        Expanded(child: Text(label, style: context.text.bodySmall)),
+        Text(sign, style: context.text.bodySmall),
+        MoneyText(cents, style: context.text.bodySmall, hideZeroDecimals: true),
+      ],
+    );
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -337,16 +357,12 @@ class _Section extends StatelessWidget {
                     shape: BoxShape.circle,
                     border: Border.all(color: c.seal, width: 1.5),
                   ),
-                  child: Text('$number',
-                      style: context.text.labelLarge?.copyWith(color: c.seal)),
+                  child: Text('$number', style: context.text.labelLarge?.copyWith(color: c.seal)),
                 ),
                 const SizedBox(width: Space.s3),
               ],
               Expanded(
-                child: Semantics(
-                  header: true,
-                  child: Text(title, style: context.text.titleLarge),
-                ),
+                child: Semantics(header: true, child: Text(title, style: context.text.titleLarge)),
               ),
               ?trailing,
             ],
@@ -420,8 +436,10 @@ class _RowList extends StatelessWidget {
           ),
         ),
         if (showRecurring && rows.isNotEmpty)
-          Text('Fixed costs are copied to next month automatically.',
-              style: context.text.bodySmall),
+          Text(
+            'Fixed costs are copied to next month automatically.',
+            style: context.text.bodySmall,
+          ),
       ],
     );
   }
@@ -459,8 +477,7 @@ class _BudgetFields extends ConsumerWidget {
                     shape: BoxShape.circle,
                     color: c.container(PillarStyle.color(c, p.id)),
                   ),
-                  child: Icon(PillarStyle.icon(p.id),
-                      size: 20, color: PillarStyle.color(c, p.id)),
+                  child: Icon(PillarStyle.icon(p.id), size: 20, color: PillarStyle.color(c, p.id)),
                 ),
                 const SizedBox(width: Space.s3),
                 Expanded(flex: 4, child: Text(p.name, style: context.text.titleMedium)),
@@ -477,8 +494,7 @@ class _BudgetFields extends ConsumerWidget {
               Icon(Symbols.info_rounded, size: IconSizes.sm, color: c.ink3),
               const SizedBox(width: Space.s1),
               MoneyText(diff.abs(), style: context.text.bodySmall, hideZeroDecimals: true),
-              Text(diff > 0 ? ' unassigned' : ' over-assigned',
-                  style: context.text.bodySmall),
+              Text(diff > 0 ? ' unassigned' : ' over-assigned', style: context.text.bodySmall),
             ],
           ),
       ],

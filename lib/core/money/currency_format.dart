@@ -41,10 +41,10 @@ class CurrencyFormat {
   }
 
   Map<String, String> toSettings() => {
-        keySymbol: symbol,
-        keyPosition: position.name,
-        keySpace: space.toString(),
-      };
+    keySymbol: symbol,
+    keyPosition: position.name,
+    keySpace: space.toString(),
+  };
 
   CurrencyFormat copyWith({String? symbol, SymbolPosition? position, bool? space}) {
     return CurrencyFormat(

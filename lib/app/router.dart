@@ -34,24 +34,28 @@ GoRouter buildRouter() {
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => AppShell(navigationShell: shell),
         branches: [
-          StatefulShellBranch(routes: [
-            GoRoute(path: Routes.home, builder: (_, _) => const DashboardScreen()),
-          ]),
-          StatefulShellBranch(routes: [
-            GoRoute(path: Routes.transactions, builder: (_, _) => const TransactionsScreen()),
-          ]),
-          StatefulShellBranch(routes: [
-            GoRoute(path: Routes.history, builder: (_, _) => const HistoryScreen()),
-          ]),
-          StatefulShellBranch(routes: [
-            GoRoute(
-              path: Routes.settings,
-              builder: (_, _) => const SettingsScreen(),
-              routes: [
-                GoRoute(path: 'currency', builder: (_, _) => const CurrencyFormatScreen()),
-              ],
-            ),
-          ]),
+          StatefulShellBranch(
+            routes: [GoRoute(path: Routes.home, builder: (_, _) => const DashboardScreen())],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(path: Routes.transactions, builder: (_, _) => const TransactionsScreen()),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [GoRoute(path: Routes.history, builder: (_, _) => const HistoryScreen())],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: Routes.settings,
+                builder: (_, _) => const SettingsScreen(),
+                routes: [
+                  GoRoute(path: 'currency', builder: (_, _) => const CurrencyFormatScreen()),
+                ],
+              ),
+            ],
+          ),
         ],
       ),
     ],

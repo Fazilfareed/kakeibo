@@ -50,4 +50,29 @@ class PeriodSummary {
     if (overspend == 0) return 1;
     return ((savingsGoal - overspend) / savingsGoal).clamp(0.0, 1.0);
   }
+
+  /// Days of the period so far, including today; at least 1.
+  int get daysElapsed {
+    final elapsed = LocalDate.daysBetween(range.start, LocalDate.dateOnly(today)) + 1;
+    return elapsed.clamp(1, range.totalDays);
+  }
+
+  /// A projection from one or two days of spending is noise, so it is shown
+  /// only after day 3 (PRD §12.2).
+  bool get hasProjection => daysElapsed > 3;
+
+  /// Spend by the end of the period if the current pace continues.
+  int get projectedSpend => spent * range.totalDays ~/ daysElapsed;
+
+  /// Savings at the end of the period at the current pace (may be negative).
+  int get projectedSavings => income - fixed - projectedSpend;
+
+  /// Ring value for FR-31 (0–1): projected savings against the goal. Before
+  /// day 4, or once overspending has started eating the savings, it shows how
+  /// much of the goal is actually still safe, matching the caption beside it.
+  double get savingsProgress {
+    if (savingsGoal <= 0) return 0;
+    if (!hasProjection || overspend > 0) return savingsProtected;
+    return (projectedSavings / savingsGoal).clamp(0.0, 1.0);
+  }
 }

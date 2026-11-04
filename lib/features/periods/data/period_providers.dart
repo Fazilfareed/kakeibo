@@ -26,6 +26,13 @@ final periodPlanProvider = StreamProvider.family<PeriodPlan, int>(
   (ref, periodId) => ref.watch(periodRepositoryProvider).watchPlan(periodId),
 );
 
+/// Last month's chosen improvement, shown on Home (FR-37).
+final currentImprovementProvider = StreamProvider<String?>((ref) {
+  final period = ref.watch(currentPeriodProvider).value;
+  if (period == null) return Stream.value(null);
+  return ref.watch(periodRepositoryProvider).watchImprovementFor(period);
+});
+
 /// Summary of the current period, or null while loading.
 final currentSummaryProvider = Provider<PeriodSummary?>((ref) {
   final period = ref.watch(currentPeriodProvider).value;

@@ -40,8 +40,7 @@ class Periods extends Table {
 @TableIndex(name: 'incomes_period', columns: {#periodId})
 class Incomes extends Table {
   IntColumn get id => integer().autoIncrement()();
-  IntColumn get periodId =>
-      integer().references(Periods, #id, onDelete: KeyAction.cascade)();
+  IntColumn get periodId => integer().references(Periods, #id, onDelete: KeyAction.cascade)();
   TextColumn get label => text()();
   IntColumn get amount => integer()();
   TextColumn get date => text()();
@@ -53,18 +52,15 @@ class Incomes extends Table {
 @TableIndex(name: 'fixed_costs_period', columns: {#periodId})
 class FixedCosts extends Table {
   IntColumn get id => integer().autoIncrement()();
-  IntColumn get periodId =>
-      integer().references(Periods, #id, onDelete: KeyAction.cascade)();
+  IntColumn get periodId => integer().references(Periods, #id, onDelete: KeyAction.cascade)();
   TextColumn get label => text()();
   IntColumn get amount => integer()();
   BoolColumn get isRecurring => boolean().withDefault(const Constant(true))();
 }
 
 class PillarBudgets extends Table {
-  IntColumn get periodId =>
-      integer().references(Periods, #id, onDelete: KeyAction.cascade)();
-  IntColumn get pillarId =>
-      integer().references(Pillars, #id, onDelete: KeyAction.restrict)();
+  IntColumn get periodId => integer().references(Periods, #id, onDelete: KeyAction.cascade)();
+  IntColumn get pillarId => integer().references(Pillars, #id, onDelete: KeyAction.restrict)();
   IntColumn get plannedAmount => integer().withDefault(const Constant(0))();
 
   @override
@@ -84,10 +80,8 @@ class PaymentMethods extends Table {
 @TableIndex(name: 'expenses_deleted', columns: {#deletedAt})
 class Expenses extends Table {
   IntColumn get id => integer().autoIncrement()();
-  IntColumn get periodId =>
-      integer().references(Periods, #id, onDelete: KeyAction.cascade)();
-  IntColumn get pillarId =>
-      integer().references(Pillars, #id, onDelete: KeyAction.restrict)();
+  IntColumn get periodId => integer().references(Periods, #id, onDelete: KeyAction.cascade)();
+  IntColumn get pillarId => integer().references(Pillars, #id, onDelete: KeyAction.restrict)();
 
   /// `expense` or `refund` (refunds count as negative spend).
   TextColumn get type => text().withDefault(const Constant('expense'))();
@@ -99,12 +93,10 @@ class Expenses extends Table {
 
   /// `worth`, `neutral`, `regret` or null.
   TextColumn get mood => text().nullable()();
-  IntColumn get paymentMethodId => integer()
-      .nullable()
-      .references(PaymentMethods, #id, onDelete: KeyAction.setNull)();
-  IntColumn get refundOfId => integer()
-      .nullable()
-      .references(Expenses, #id, onDelete: KeyAction.setNull)();
+  IntColumn get paymentMethodId =>
+      integer().nullable().references(PaymentMethods, #id, onDelete: KeyAction.setNull)();
+  IntColumn get refundOfId =>
+      integer().nullable().references(Expenses, #id, onDelete: KeyAction.setNull)();
   TextColumn get splitGroupId => text().nullable()();
   BoolColumn get isLumpSum => boolean().withDefault(const Constant(false))();
   TextColumn get deletedAt => text().nullable()();
@@ -114,8 +106,7 @@ class Expenses extends Table {
 
 class PlanChanges extends Table {
   IntColumn get id => integer().autoIncrement()();
-  IntColumn get periodId =>
-      integer().references(Periods, #id, onDelete: KeyAction.cascade)();
+  IntColumn get periodId => integer().references(Periods, #id, onDelete: KeyAction.cascade)();
   TextColumn get field => text()();
   TextColumn get oldValue => text().nullable()();
   TextColumn get newValue => text().nullable()();
@@ -123,8 +114,7 @@ class PlanChanges extends Table {
 }
 
 class Reflections extends Table {
-  IntColumn get periodId =>
-      integer().references(Periods, #id, onDelete: KeyAction.cascade)();
+  IntColumn get periodId => integer().references(Periods, #id, onDelete: KeyAction.cascade)();
   IntColumn get savedAmount => integer()();
   BoolColumn get goalMet => boolean()();
   TextColumn get answerQ1 => text().nullable()();
@@ -144,8 +134,7 @@ class Reflections extends Table {
 
 class WeeklyCheckins extends Table {
   IntColumn get id => integer().autoIncrement()();
-  IntColumn get periodId =>
-      integer().references(Periods, #id, onDelete: KeyAction.cascade)();
+  IntColumn get periodId => integer().references(Periods, #id, onDelete: KeyAction.cascade)();
   TextColumn get weekStart => text()();
   TextColumn get note => text().nullable()();
 }

@@ -122,8 +122,10 @@ class _CurrencyFormatScreenState extends ConsumerState<CurrencyFormatScreen> {
                 for (final pos in SymbolPosition.values)
                   ButtonSegment(
                     value: pos,
-                    label: Text(MoneyFormatter(format.copyWith(position: pos))
-                        .formatCents(10000, hideZeroDecimals: true)),
+                    label: Text(
+                      MoneyFormatter(format.copyWith(position: pos))
+                          .formatCents(10000, hideZeroDecimals: true),
+                    ),
                   ),
               ],
               selected: {format.position},
@@ -139,8 +141,10 @@ class _CurrencyFormatScreenState extends ConsumerState<CurrencyFormatScreen> {
             ),
           ),
           const SizedBox(height: Space.s3),
-          Text('Currency code: ${CurrencyFormat.currencyCode}',
-              style: context.text.bodySmall?.copyWith(color: c.ink3)),
+          Text(
+            'Currency code: ${CurrencyFormat.currencyCode}',
+            style: context.text.bodySmall?.copyWith(color: c.ink3),
+          ),
         ],
       ),
     );

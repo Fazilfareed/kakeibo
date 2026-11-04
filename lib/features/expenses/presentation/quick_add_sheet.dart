@@ -84,30 +84,12 @@ class _QuickAddSheetState extends ConsumerState<QuickAddSheet> {
   }
 
   Future<void> _editNote() async {
-    final controller = TextEditingController(text: _note ?? '');
     final result = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Note'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          maxLength: 60,
-          textCapitalization: TextCapitalization.sentences,
-          decoration: const InputDecoration(hintText: 'What was it for?'),
-          onSubmitted: (v) => Navigator.pop(context, v),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text),
-            child: const Text('Done'),
-          ),
-        ],
-      ),
+      builder: (context) => _NoteDialog(initial: _note ?? ''),
     );
-    controller.dispose();
-    if (result != null) setState(() => _note = result.trim().isEmpty ? null : result.trim());
+    if (!mounted || result == null) return;
+    setState(() => _note = result.trim().isEmpty ? null : result.trim());
   }
 
   Future<void> _pickDate(Period period) async {
@@ -142,7 +124,8 @@ class _QuickAddSheetState extends ConsumerState<QuickAddSheet> {
     final view = View.of(context);
     final textDirection = Directionality.of(context);
     final money = ref.read(moneyFormatterProvider).formatCents(draft.amount);
-    final pillarName = (ref.read(pillarsProvider).value ?? const <Pillar>[])
+    final pillarName =
+        (ref.read(pillarsProvider).value ?? const <Pillar>[])
             .where((p) => p.id == draft.pillarId)
             .firstOrNull
             ?.name ??
@@ -152,10 +135,16 @@ class _QuickAddSheetState extends ConsumerState<QuickAddSheet> {
         await repo.update(widget.editing!.id, draft);
       } else {
         final id = await repo.add(draft);
-        messenger.showSnackBar(SnackBar(
-          content: Text('Saved $money to $pillarName'),
-          action: SnackBarAction(label: 'Undo', onPressed: () => repo.softDelete(id)),
-        ));
+        // Replace any older message so the newest save is the one shown.
+        messenger.removeCurrentSnackBar();
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Saved $money to $pillarName'),
+            // Snack bars with an action persist by default; Undo lasts 4 s (MASTER.md §7.11).
+            persist: false,
+            action: SnackBarAction(label: 'Undo', onPressed: () => repo.softDelete(id)),
+          ),
+        );
       }
       HapticFeedback.lightImpact();
       SemanticsService.sendAnnouncement(
@@ -165,6 +154,7 @@ class _QuickAddSheetState extends ConsumerState<QuickAddSheet> {
       );
       navigator.pop();
       if (_isEdit) {
+        messenger.removeCurrentSnackBar();
         messenger.showSnackBar(const SnackBar(content: Text('Expense updated')));
       }
     } on NoPeriodForDateException {
@@ -185,8 +175,8 @@ class _QuickAddSheetState extends ConsumerState<QuickAddSheet> {
     final dateLabel = _date == today
         ? 'Today'
         : _date == today.subtract(const Duration(days: 1))
-            ? 'Yesterday'
-            : DateFormat('EEE, d MMM').format(_date);
+        ? 'Yesterday'
+        : DateFormat('EEE, d MMM').format(_date);
     final method = methods.where((m) => m.id == _paymentMethodId).firstOrNull;
 
     return FractionallySizedBox(
@@ -200,8 +190,11 @@ class _QuickAddSheetState extends ConsumerState<QuickAddSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text(_isEdit ? 'Edit expense' : 'Add expense',
-                        style: context.text.bodySmall, textAlign: TextAlign.center),
+                    Text(
+                      _isEdit ? 'Edit expense' : 'Add expense',
+                      style: context.text.bodySmall,
+                      textAlign: TextAlign.center,
+                    ),
                     const SizedBox(height: Space.s2),
                     _AmountDisplay(input: _amount, format: format),
                     const SizedBox(height: Space.s4),
@@ -285,13 +278,15 @@ class _QuickAddSheetState extends ConsumerState<QuickAddSheet> {
               width: double.infinity,
               child: FilledButton(
                 onPressed: _canSave ? _save : null,
-                child: Text(_pillarId == null
-                    ? 'Choose a pillar'
-                    : _amount.cents == 0
-                        ? 'Enter an amount'
-                        : _isEdit
-                            ? 'Save changes'
-                            : 'Save'),
+                child: Text(
+                  _pillarId == null
+                      ? 'Choose a pillar'
+                      : _amount.cents == 0
+                      ? 'Enter an amount'
+                      : _isEdit
+                      ? 'Save changes'
+                      : 'Save',
+                ),
               ),
             ),
           ],
@@ -301,10 +296,10 @@ class _QuickAddSheetState extends ConsumerState<QuickAddSheet> {
   }
 
   static IconData _moodIcon(Mood m) => switch (m) {
-        Mood.worth => Symbols.sentiment_satisfied_rounded,
-        Mood.neutral => Symbols.sentiment_neutral_rounded,
-        Mood.regret => Symbols.sentiment_dissatisfied_rounded,
-      };
+    Mood.worth => Symbols.sentiment_satisfied_rounded,
+    Mood.neutral => Symbols.sentiment_neutral_rounded,
+    Mood.regret => Symbols.sentiment_dissatisfied_rounded,
+  };
 }
 
 /// The typed amount, grouped as you type, with a blinking caret.
@@ -326,10 +321,14 @@ class _AmountDisplay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final style = context.moneyText.displayMoney.copyWith(fontSize: 44,
-        color: input.isEmpty ? c.ink3 : c.ink);
-    final symbol = Text(format.symbol,
-        style: style.copyWith(fontSize: 22, color: c.ink2, fontWeight: FontWeight.w500));
+    final style = context.moneyText.displayMoney.copyWith(
+      fontSize: 44,
+      color: input.isEmpty ? c.ink3 : c.ink,
+    );
+    final symbol = Text(
+      format.symbol,
+      style: style.copyWith(fontSize: 22, color: c.ink2, fontWeight: FontWeight.w500),
+    );
     final gap = SizedBox(width: format.space ? Space.s2 : 0);
     return Semantics(
       liveRegion: true,
@@ -424,44 +423,51 @@ class _PillarGrid extends StatelessWidget {
       childAspectRatio: 2.6,
       children: [
         for (final p in pillars)
-          Builder(builder: (context) {
-            final accent = PillarStyle.color(c, p.id);
-            final selected = p.id == selectedId;
-            return Semantics(
-              button: true,
-              selected: selected,
-              label: p.name,
-              excludeSemantics: true,
-              child: Material(
-                color: selected ? accent : c.container(accent),
-                borderRadius: BorderRadius.circular(Radii.md),
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  onTap: () => onPick(p.id),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: Space.s3),
-                    child: Row(
-                      children: [
-                        Icon(PillarStyle.icon(p.id),
-                            size: 26, color: selected ? onAccent : accent, fill: selected ? 1 : 0),
-                        const SizedBox(width: Space.s2),
-                        Expanded(
-                          child: Text(
-                            p.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: context.text.titleMedium
-                                ?.copyWith(color: selected ? onAccent : accent),
+          Builder(
+            builder: (context) {
+              final accent = PillarStyle.color(c, p.id);
+              final selected = p.id == selectedId;
+              return Semantics(
+                button: true,
+                selected: selected,
+                label: p.name,
+                excludeSemantics: true,
+                child: Material(
+                  color: selected ? accent : c.container(accent),
+                  borderRadius: BorderRadius.circular(Radii.md),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: () => onPick(p.id),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: Space.s3),
+                      child: Row(
+                        children: [
+                          Icon(
+                            PillarStyle.icon(p.id),
+                            size: 26,
+                            color: selected ? onAccent : accent,
+                            fill: selected ? 1 : 0,
                           ),
-                        ),
-                        if (selected) Icon(Symbols.check_rounded, size: 20, color: onAccent),
-                      ],
+                          const SizedBox(width: Space.s2),
+                          Expanded(
+                            child: Text(
+                              p.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: context.text.titleMedium?.copyWith(
+                                color: selected ? onAccent : accent,
+                              ),
+                            ),
+                          ),
+                          if (selected) Icon(Symbols.check_rounded, size: 20, color: onAccent),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            );
-          }),
+              );
+            },
+          ),
       ],
     );
   }
@@ -494,10 +500,12 @@ class _OptionChip extends StatelessWidget {
           const SizedBox(width: Space.s1),
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 160),
-            child: Text(label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: context.text.labelLarge?.copyWith(color: fg)),
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: context.text.labelLarge?.copyWith(color: fg),
+            ),
           ),
         ],
       ),
@@ -505,11 +513,7 @@ class _OptionChip extends StatelessWidget {
     if (onTap == null) return chip;
     return Semantics(
       button: true,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(Radii.sm),
-        onTap: onTap,
-        child: chip,
-      ),
+      child: InkWell(borderRadius: BorderRadius.circular(Radii.sm), onTap: onTap, child: chip),
     );
   }
 }
@@ -547,14 +551,60 @@ class _Keypad extends StatelessWidget {
                 onLongPress: k == 'back' ? onClear : null,
                 child: Center(
                   child: k == 'back'
-                      ? Icon(Symbols.backspace_rounded,
-                          color: c.ink, semanticLabel: 'Delete, long press to clear')
+                      ? Icon(
+                          Symbols.backspace_rounded,
+                          color: c.ink,
+                          semanticLabel: 'Delete, long press to clear',
+                        )
                       : Text(k == '.' ? '.' : k, style: keyStyle),
                 ),
               ),
             ),
         ],
       ),
+    );
+  }
+}
+
+/// The note editor. It owns its controller so the controller lives until the
+/// dialog's exit animation has finished (disposing it earlier crashes).
+class _NoteDialog extends StatefulWidget {
+  const _NoteDialog({required this.initial});
+
+  final String initial;
+
+  @override
+  State<_NoteDialog> createState() => _NoteDialogState();
+}
+
+class _NoteDialogState extends State<_NoteDialog> {
+  late final TextEditingController _controller = TextEditingController(text: widget.initial);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Note'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        maxLength: 60,
+        textCapitalization: TextCapitalization.sentences,
+        decoration: const InputDecoration(hintText: 'What was it for?'),
+        onSubmitted: (v) => Navigator.pop(context, v),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _controller.text),
+          child: const Text('Done'),
+        ),
+      ],
     );
   }
 }

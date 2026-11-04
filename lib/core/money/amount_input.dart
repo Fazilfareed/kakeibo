@@ -40,8 +40,7 @@ class AmountInput {
     return AmountInput._('$raw$key');
   }
 
-  AmountInput backspace() =>
-      raw.isEmpty ? this : AmountInput._(raw.substring(0, raw.length - 1));
+  AmountInput backspace() => raw.isEmpty ? this : AmountInput._(raw.substring(0, raw.length - 1));
 
   AmountInput clear() => const AmountInput.empty();
 

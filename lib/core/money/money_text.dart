@@ -29,8 +29,9 @@ class MoneyText extends ConsumerWidget {
     final formatter = ref.watch(moneyFormatterProvider);
     final parts = formatter.parts(cents, hideZeroDecimals: hideZeroDecimals);
     final c = context.colors;
-    final base = (style ?? DefaultTextStyle.of(context).style)
-        .copyWith(color: parts.isNegative ? c.over : null);
+    final base = (style ?? DefaultTextStyle.of(context).style).copyWith(
+      color: parts.isNegative ? c.over : null,
+    );
     final symbolStyle = base.copyWith(
       color: parts.isNegative ? c.over : c.ink2,
       fontSize: (base.fontSize ?? 16) * symbolScale,

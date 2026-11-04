@@ -15,8 +15,7 @@ class DateRange {
   }
 
   @override
-  bool operator ==(Object other) =>
-      other is DateRange && other.start == start && other.end == end;
+  bool operator ==(Object other) => other is DateRange && other.start == start && other.end == end;
 
   @override
   int get hashCode => Object.hash(start, end);
@@ -49,6 +48,5 @@ abstract final class PeriodMath {
   }
 
   /// One month after [start], minus one day.
-  static DateTime _endFor(DateTime start) =>
-      DateTime(start.year, start.month + 1, start.day - 1);
+  static DateTime _endFor(DateTime start) => DateTime(start.year, start.month + 1, start.day - 1);
 }

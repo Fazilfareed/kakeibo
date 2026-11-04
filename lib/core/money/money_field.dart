@@ -34,8 +34,10 @@ class MoneyField extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final format = ref.watch(currencyFormatProvider);
-    final symbol = Text(format.symbol,
-        style: context.text.bodyMedium?.copyWith(color: context.colors.ink2));
+    final symbol = Text(
+      format.symbol,
+      style: context.text.bodyMedium?.copyWith(color: context.colors.ink2),
+    );
     return TextField(
       controller: controller,
       textAlign: TextAlign.right,
@@ -43,10 +45,12 @@ class MoneyField extends ConsumerWidget {
       textInputAction: textInputAction,
       inputFormatters: [
         FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
-        TextInputFormatter.withFunction((oldValue, newValue) =>
-            AmountInput.parseCents(newValue.text) != null || newValue.text.isEmpty
-                ? newValue
-                : oldValue),
+        TextInputFormatter.withFunction(
+          (oldValue, newValue) =>
+              AmountInput.parseCents(newValue.text) != null || newValue.text.isEmpty
+              ? newValue
+              : oldValue,
+        ),
       ],
       style: context.moneyText.moneyM.copyWith(fontSize: 18),
       decoration: InputDecoration(

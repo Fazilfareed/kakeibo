@@ -32,14 +32,14 @@ class AppShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.colors;
     Widget tab(int i) => Expanded(
-          child: _NavItem(
-            label: _tabs[i].label,
-            icon: _tabs[i].icon,
-            selectedIcon: _tabs[i].selected,
-            selected: navigationShell.currentIndex == i,
-            onTap: () => _goBranch(i),
-          ),
-        );
+      child: _NavItem(
+        label: _tabs[i].label,
+        icon: _tabs[i].icon,
+        selectedIcon: _tabs[i].selected,
+        selected: navigationShell.currentIndex == i,
+        onTap: () => _goBranch(i),
+      ),
+    );
 
     return Scaffold(
       body: SafeArea(bottom: false, child: navigationShell),
@@ -50,11 +50,11 @@ class AppShell extends StatelessWidget {
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: DecoratedBox(
-        decoration: BoxDecoration(border: Border(top: BorderSide(color: c.divider))),
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: c.divider)),
+        ),
         child: BottomAppBar(
-          child: Row(
-            children: [tab(0), tab(1), const SizedBox(width: 80), tab(2), tab(3)],
-          ),
+          child: Row(children: [tab(0), tab(1), const SizedBox(width: 80), tab(2), tab(3)]),
         ),
       ),
     );

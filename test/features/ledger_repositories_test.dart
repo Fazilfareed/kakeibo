@@ -54,9 +54,9 @@ void main() {
       expect(feb.startDate, '2027-02-01');
       expect(await periodCount(), 4);
 
-      final all = await (db.select(db.periods)
-            ..orderBy([(p) => OrderingTerm.asc(p.startDate)]))
-          .get();
+      final all = await (db.select(
+        db.periods,
+      )..orderBy([(p) => OrderingTerm.asc(p.startDate)])).get();
       expect(all.map((p) => p.status), ['closed', 'closed', 'closed', 'planning']);
 
       final plan = await periods.loadPlan(feb.id);
@@ -75,10 +75,31 @@ void main() {
     expect(await db.select(db.planChanges).get(), isEmpty);
 
     await periods.savePlan(
-        p.id, const PlanDraft(incomes: [], fixedCosts: [], savingsGoal: 200, budgets: {}));
+      p.id,
+      const PlanDraft(incomes: [], fixedCosts: [], savingsGoal: 200, budgets: {}),
+    );
     final changes = await db.select(db.planChanges).get();
     expect(changes.single.oldValue, '100');
     expect(changes.single.newValue, '200');
+  });
+
+  test('improvement from last month reflection shows on the new period', () async {
+    final nov = await periods.ensureCurrentPeriod(now: DateTime(2026, 11, 3));
+    final dec = await periods.ensureCurrentPeriod(now: DateTime(2026, 12, 2));
+    expect(await periods.watchImprovementFor(dec).first, isNull);
+
+    await db
+        .into(db.reflections)
+        .insert(
+          ReflectionsCompanion.insert(
+            periodId: Value(nov.id),
+            savedAmount: 0,
+            goalMet: false,
+            improvement: const Value(' No food delivery '),
+          ),
+        );
+    expect(await periods.watchImprovementFor(dec).first, 'No food delivery');
+    expect(await periods.watchImprovementFor(nov).first, isNull);
   });
 
   group('expenses', () {
@@ -107,21 +128,27 @@ void main() {
 
     test('refunds subtract from their pillar', () async {
       await expenses.add(draft(2, 50000));
-      await db.into(db.expenses).insert(ExpensesCompanion.insert(
-            periodId: periodId,
-            pillarId: 2,
-            amount: 20000,
-            date: '2026-11-04',
-            type: const Value('refund'),
-            createdAt: 'x',
-            updatedAt: 'x',
-          ));
+      await db
+          .into(db.expenses)
+          .insert(
+            ExpensesCompanion.insert(
+              periodId: periodId,
+              pillarId: 2,
+              amount: 20000,
+              date: '2026-11-04',
+              type: const Value('refund'),
+              createdAt: 'x',
+              updatedAt: 'x',
+            ),
+          );
       expect(await expenses.watchPillarTotals(periodId).first, {2: 30000});
     });
 
     test('rejects dates outside any period', () async {
-      expect(() => expenses.add(draft(1, 100, date: '2026-10-31')),
-          throwsA(isA<NoPeriodForDateException>()));
+      expect(
+        () => expenses.add(draft(1, 100, date: '2026-10-31')),
+        throwsA(isA<NoPeriodForDateException>()),
+      );
     });
 
     test('blank notes are stored as null and recent notes are distinct', () async {

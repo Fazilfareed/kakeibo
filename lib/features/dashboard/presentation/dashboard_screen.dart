@@ -8,14 +8,21 @@ import '../../../app/router.dart';
 import '../../../app/theme/kakeibo_colors.dart';
 import '../../../app/theme/kakeibo_text.dart';
 import '../../../app/theme/tokens.dart';
+import '../../../core/date/local_date.dart';
 import '../../../core/db/app_database.dart';
 import '../../../core/money/money_text.dart';
 import '../../../core/pillars/pillars_provider.dart';
+import '../../expenses/data/expense_providers.dart';
+import '../../expenses/presentation/expense_tile.dart';
 import '../../periods/data/period_providers.dart';
 import '../../periods/domain/period_summary.dart';
+import '../../settings/domain/app_preferences.dart';
+import '../../transactions/presentation/transactions_screen.dart';
 import 'widgets/pillar_bar.dart';
+import 'widgets/savings_ring.dart';
 
-/// Home: how much is left this month (MASTER.md §7.4, §8).
+/// Home: how much is left this month (MASTER.md §7.4, §8; PRD FR-30–37).
+/// Order: hero card → action cards → pillar bars → recent 5.
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
@@ -25,12 +32,17 @@ class DashboardScreen extends ConsumerWidget {
     final summary = ref.watch(currentSummaryProvider);
     final pillars = ref.watch(pillarsProvider).value ?? const <Pillar>[];
 
-    if (period == null || summary == null) {
-      return const Center(child: SizedBox.shrink());
-    }
+    if (period == null || summary == null) return const _Skeleton();
 
+    final improvement = ref.watch(currentImprovementProvider).value;
+    final expenses = ref.watch(periodExpensesProvider(period.id)).value ?? const <Expense>[];
     final fmt = DateFormat('d MMM');
     final planned = period.status != 'planning';
+
+    void openPillar(int? pillarId) {
+      ref.read(spendsFilterProvider.notifier).set(pillarId);
+      context.go(Routes.transactions);
+    }
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(Space.gutter, Space.s3, Space.gutter, 96),
@@ -42,7 +54,7 @@ class DashboardScreen extends ConsumerWidget {
         ),
         Text(DateFormat('MMMM').format(summary.range.start), style: context.text.headlineSmall),
         const SizedBox(height: Space.s4),
-        _HeroCard(summary: summary, planned: planned),
+        _HeroCard(summary: summary, planned: planned, savingsSetAside: period.savingsSetAside),
         const SizedBox(height: Space.s3),
         if (!planned) ...[
           _ActionCard(
@@ -57,9 +69,23 @@ class DashboardScreen extends ConsumerWidget {
           _SaveFirstCard(periodId: period.id, goal: summary.savingsGoal),
           const SizedBox(height: Space.s3),
         ],
+        if (improvement != null) ...[
+          _ActionCard(
+            icon: Symbols.flag_rounded,
+            accent: context.colors.culture,
+            textWidget: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('This month I will', style: context.text.bodySmall),
+                Text(improvement, style: context.text.bodyMedium),
+              ],
+            ),
+          ),
+          const SizedBox(height: Space.s3),
+        ],
         Card(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(Space.s4, Space.s3, Space.s4, Space.s3),
+            padding: const EdgeInsets.fromLTRB(Space.s3, Space.s2, Space.s3, Space.s2),
             child: Column(
               children: [
                 for (final p in pillars)
@@ -68,11 +94,14 @@ class DashboardScreen extends ConsumerWidget {
                     name: p.name,
                     spentCents: summary.spentByPillar[p.id] ?? 0,
                     plannedCents: summary.plannedByPillar[p.id] ?? 0,
+                    onTap: () => openPillar(p.id),
                   ),
               ],
             ),
           ),
         ),
+        const SizedBox(height: Space.s3),
+        _RecentCard(expenses: expenses, pillars: pillars, onSeeAll: () => openPillar(null)),
         if (planned) ...[
           const SizedBox(height: Space.s2),
           Align(
@@ -90,10 +119,11 @@ class DashboardScreen extends ConsumerWidget {
 }
 
 class _HeroCard extends StatelessWidget {
-  const _HeroCard({required this.summary, required this.planned});
+  const _HeroCard({required this.summary, required this.planned, required this.savingsSetAside});
 
   final PeriodSummary summary;
   final bool planned;
+  final bool savingsSetAside;
 
   @override
   Widget build(BuildContext context) {
@@ -115,13 +145,31 @@ class _HeroCard extends StatelessWidget {
             if (!planned)
               Text('Plan your month to see your daily allowance.', style: context.text.bodySmall)
             else if (over)
+              // FR-35: honest about the cost, never shaming.
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Symbols.cancel_rounded, size: IconSizes.sm, color: c.over),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Icon(Symbols.cancel_rounded, size: IconSizes.sm, color: c.over),
+                  ),
                   const SizedBox(width: Space.s1),
                   Expanded(
-                    child: Text("That's okay. It comes out of your savings this month.",
-                        style: context.text.bodySmall),
+                    child: Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          "That's okay. It brings your savings to ",
+                          style: context.text.bodySmall,
+                        ),
+                        MoneyText(
+                          summary.actualSavings,
+                          style: context.text.bodySmall?.copyWith(color: c.ink),
+                          hideZeroDecimals: true,
+                        ),
+                        Text(' this month.', style: context.text.bodySmall),
+                      ],
+                    ),
                   ),
                 ],
               )
@@ -129,26 +177,96 @@ class _HeroCard extends StatelessWidget {
               Wrap(
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  MoneyText(summary.dailyAllowance,
-                      style: context.text.bodySmall?.copyWith(color: c.ink), hideZeroDecimals: true),
+                  MoneyText(
+                    summary.dailyAllowance,
+                    style: context.text.bodySmall?.copyWith(color: c.ink),
+                    hideZeroDecimals: true,
+                  ),
                   Text(' a day keeps you on track', style: context.text.bodySmall),
                 ],
               ),
             if (planned) ...[
               const SizedBox(height: Space.s4),
               const Divider(),
-              const SizedBox(height: Space.s3),
+              const SizedBox(height: Space.s4),
+              if (summary.savingsGoal > 0) ...[
+                _SavingsRow(summary: summary, stamped: savingsSetAside && !over),
+                const SizedBox(height: Space.s4),
+              ],
               Row(
                 children: [
-                  Expanded(child: _Stat(label: 'Spent', cents: summary.spent)),
-                  Expanded(child: _Stat(label: 'Spendable', cents: summary.spendable)),
-                  Expanded(child: _Stat(label: 'Saving', cents: summary.savingsGoal)),
+                  Expanded(
+                    child: _Stat(label: 'Spent', cents: summary.spent),
+                  ),
+                  Expanded(
+                    child: _Stat(label: 'Spendable', cents: summary.spendable),
+                  ),
                 ],
               ),
             ],
           ],
         ),
       ),
+    );
+  }
+}
+
+/// FR-31: savings goal with the projected end-of-month savings.
+class _SavingsRow extends ConsumerWidget {
+  const _SavingsRow({required this.summary, required this.stamped});
+
+  final PeriodSummary summary;
+  final bool stamped;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final money = ref.watch(moneyFormatterProvider);
+    final pct = (summary.savingsProgress * 100).round();
+    final onGoal = summary.projectedSavings >= summary.savingsGoal;
+
+    final (String lead, int? amount, String tail) = switch (summary) {
+      _ when summary.overspend > 0 => ('Savings now ', summary.actualSavings, '.'),
+      _ when !summary.hasProjection => ('A projection appears from day 4.', null, ''),
+      _ => ('At this pace you save ', summary.projectedSavings, onGoal ? ', on goal.' : '.'),
+    };
+    final caption = amount == null
+        ? lead
+        : '$lead${money.formatCents(amount, hideZeroDecimals: true)}$tail';
+
+    return Row(
+      children: [
+        SavingsRing(
+          value: summary.savingsProgress,
+          stamped: stamped,
+          semanticsLabel:
+              'Savings goal ${money.semanticLabel(summary.savingsGoal)}, $pct percent. '
+              '${amount == null ? lead : '$lead${money.semanticLabel(amount)}$tail'}',
+        ),
+        const SizedBox(width: Space.s5),
+        Expanded(
+          child: ExcludeSemantics(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Savings goal', style: context.text.bodySmall),
+                MoneyText(
+                  summary.savingsGoal,
+                  style: context.text.titleLarge,
+                  hideZeroDecimals: true,
+                ),
+                const SizedBox(height: Space.s1),
+                Text(
+                  caption,
+                  style: context.text.bodySmall?.copyWith(
+                    color: summary.overspend > 0 ? c.over : null,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -167,6 +285,75 @@ class _Stat extends StatelessWidget {
         Text(label, style: context.text.bodySmall),
         MoneyText(cents, style: context.text.titleMedium, hideZeroDecimals: true),
       ],
+    );
+  }
+}
+
+/// FR-33: today's total and the last 5 spends.
+class _RecentCard extends StatelessWidget {
+  const _RecentCard({required this.expenses, required this.pillars, required this.onSeeAll});
+
+  final List<Expense> expenses;
+  final List<Pillar> pillars;
+  final VoidCallback onSeeAll;
+
+  @override
+  Widget build(BuildContext context) {
+    final today = LocalDate.today();
+    final todays = expenses.where((e) => e.date == today).toList();
+    final todayTotal = todays.fold(0, (a, e) => a + (e.type == 'refund' ? -e.amount : e.amount));
+    final recent = expenses.take(5).toList();
+
+    return Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(Space.s4, Space.s2, Space.s1, 0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Semantics(
+                    header: true,
+                    child: Text('Recent', style: context.text.titleMedium),
+                  ),
+                ),
+                if (expenses.isNotEmpty)
+                  TextButton(onPressed: onSeeAll, child: const Text('See all')),
+              ],
+            ),
+          ),
+          if (recent.isEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(Space.s4, Space.s2, Space.s4, Space.s4),
+              child: Text('Tap + to log your first expense.', style: context.text.bodySmall),
+            )
+          else ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(Space.s4, 0, Space.s4, Space.s1),
+              child: Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text('Today ', style: context.text.bodySmall),
+                  MoneyText(todayTotal, style: context.text.bodySmall),
+                  Text(
+                    ' · ${todays.length} ${todays.length == 1 ? 'entry' : 'entries'}',
+                    style: context.text.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+            for (final (i, e) in recent.indexed) ...[
+              if (i > 0) const Divider(indent: 68),
+              ExpenseTile(
+                key: ValueKey(e.id),
+                expense: e,
+                pillarName: pillars.where((p) => p.id == e.pillarId).firstOrNull?.name ?? '',
+              ),
+            ],
+          ],
+        ],
+      ),
     );
   }
 }
@@ -193,8 +380,7 @@ class _SaveFirstCard extends ConsumerWidget {
         ],
       ),
       actionLabel: 'Done',
-      onAction: () =>
-          ref.read(periodRepositoryProvider).setSavingsSetAside(periodId, true),
+      onAction: () => ref.read(periodRepositoryProvider).setSavingsSetAside(periodId, true),
     );
   }
 }
@@ -205,16 +391,16 @@ class _ActionCard extends StatelessWidget {
     required this.accent,
     this.text,
     this.textWidget,
-    required this.actionLabel,
-    required this.onAction,
+    this.actionLabel,
+    this.onAction,
   });
 
   final IconData icon;
   final Color accent;
   final String? text;
   final Widget? textWidget;
-  final String actionLabel;
-  final VoidCallback onAction;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -234,17 +420,61 @@ class _ActionCard extends StatelessWidget {
             ColoredBox(color: accent, child: const SizedBox(width: 4)),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(Space.s3, Space.s2, Space.s2, Space.s2),
-                child: Row(
-                  children: [
-                    ExcludeSemantics(child: Icon(icon, color: c.ink2)),
-                    const SizedBox(width: Space.s3),
-                    Expanded(child: textWidget ?? Text(text ?? '', style: context.text.bodyMedium)),
-                    TextButton(onPressed: onAction, child: Text(actionLabel)),
-                  ],
+                padding: EdgeInsets.fromLTRB(
+                  Space.s3,
+                  Space.s2,
+                  actionLabel == null ? Space.s4 : Space.s2,
+                  Space.s2,
+                ),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 48),
+                  child: Row(
+                    children: [
+                      ExcludeSemantics(child: Icon(icon, color: c.ink2)),
+                      const SizedBox(width: Space.s3),
+                      Expanded(
+                        child: textWidget ?? Text(text ?? '', style: context.text.bodyMedium),
+                      ),
+                      if (actionLabel != null)
+                        TextButton(onPressed: onAction, child: Text(actionLabel!)),
+                    ],
+                  ),
                 ),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Shown for the moment before the first data arrives (MASTER.md §6: a
+/// skeleton in `surfaceSunken`, never a spinner).
+class _Skeleton extends StatelessWidget {
+  const _Skeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final sunken = context.colors.surfaceSunken;
+    Widget block(double height, {double? width}) => Container(
+      height: height,
+      width: width,
+      decoration: BoxDecoration(color: sunken, borderRadius: BorderRadius.circular(Radii.md)),
+    );
+    return ExcludeSemantics(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(Space.gutter, Space.s3, Space.gutter, 0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            block(14, width: 160),
+            const SizedBox(height: Space.s2),
+            block(28, width: 120),
+            const SizedBox(height: Space.s4),
+            block(260),
+            const SizedBox(height: Space.s3),
+            block(220),
           ],
         ),
       ),

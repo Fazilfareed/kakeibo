@@ -9,12 +9,16 @@ void main() {
   setUp(() => db = AppDatabase(NativeDatabase.memory()));
   tearDown(() => db.close());
 
-  Future<int> insertPeriod() => db.into(db.periods).insert(PeriodsCompanion.insert(
-        startDate: '2026-11-01',
-        endDate: '2026-11-30',
-        createdAt: '2026-11-03T00:00:00Z',
-        updatedAt: '2026-11-03T00:00:00Z',
-      ));
+  Future<int> insertPeriod() => db
+      .into(db.periods)
+      .insert(
+        PeriodsCompanion.insert(
+          startDate: '2026-11-01',
+          endDate: '2026-11-30',
+          createdAt: '2026-11-03T00:00:00Z',
+          updatedAt: '2026-11-03T00:00:00Z',
+        ),
+      );
 
   ExpensesCompanion expense(int periodId, {int amount = 24000, int pillarId = 1}) =>
       ExpensesCompanion.insert(
@@ -27,9 +31,9 @@ void main() {
       );
 
   test('seeds the four pillars in order', () async {
-    final pillars = await (db.select(db.pillars)
-          ..orderBy([(p) => OrderingTerm.asc(p.sortOrder)]))
-        .get();
+    final pillars = await (db.select(
+      db.pillars,
+    )..orderBy([(p) => OrderingTerm.asc(p.sortOrder)])).get();
     expect(pillars.map((p) => p.name), ['Needs', 'Wants', 'Culture', 'Unexpected']);
   });
 
@@ -50,10 +54,7 @@ void main() {
   });
 
   test('enforces foreign keys and cascades period deletes', () async {
-    expect(
-      () => db.into(db.expenses).insert(expense(999)),
-      throwsA(isA<SqliteException>()),
-    );
+    expect(() => db.into(db.expenses).insert(expense(999)), throwsA(isA<SqliteException>()));
 
     final periodId = await insertPeriod();
     await db.into(db.expenses).insert(expense(periodId));

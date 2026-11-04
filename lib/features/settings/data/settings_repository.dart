@@ -11,16 +11,13 @@ class SettingsRepository {
   final AppDatabase _db;
 
   Stream<Map<String, String>> watchAll() {
-    return _db.select(_db.settings).watch().map(
-          (rows) => {for (final r in rows) r.key: r.value},
-        );
+    return _db.select(_db.settings).watch().map((rows) => {for (final r in rows) r.key: r.value});
   }
 
   Future<void> setAll(Map<String, String> values) {
     return _db.batch((b) {
       b.insertAllOnConflictUpdate(_db.settings, [
-        for (final e in values.entries)
-          SettingsCompanion(key: Value(e.key), value: Value(e.value)),
+        for (final e in values.entries) SettingsCompanion(key: Value(e.key), value: Value(e.value)),
       ]);
     });
   }

@@ -7,6 +7,5 @@ import '../db/database_provider.dart';
 /// The four pillars in display order.
 final pillarsProvider = StreamProvider<List<Pillar>>((ref) {
   final db = ref.watch(appDatabaseProvider);
-  return (db.select(db.pillars)..orderBy([(p) => OrderingTerm.asc(p.sortOrder)]))
-      .watch();
+  return (db.select(db.pillars)..orderBy([(p) => OrderingTerm.asc(p.sortOrder)])).watch();
 });

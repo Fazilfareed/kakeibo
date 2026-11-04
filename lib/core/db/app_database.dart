@@ -45,6 +45,9 @@ class AppDatabase extends _$AppDatabase {
     },
   );
 
+  /// Re-adds the defaults after all data was deleted (FR-72).
+  Future<void> seedDefaults() => _seed();
+
   /// Default pillars, payment methods and settings for a fresh install.
   Future<void> _seed() async {
     await batch((b) {

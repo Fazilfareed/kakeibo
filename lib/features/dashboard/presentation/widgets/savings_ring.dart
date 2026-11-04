@@ -56,7 +56,8 @@ class SavingsRing extends StatelessWidget {
                 ),
               ),
             ),
-            if (stamped) Positioned(right: -10, bottom: -6, child: _Hanko(animate: !reduceMotion)),
+            if (stamped)
+              Positioned(right: -10, bottom: -6, child: HankoStamp(animate: !reduceMotion)),
           ],
         ),
       ),
@@ -94,8 +95,8 @@ class _RingPainter extends CustomPainter {
 }
 
 /// The "saved" seal. Scales 1.2 → 1.0 over 300 ms once per appearance.
-class _Hanko extends StatelessWidget {
-  const _Hanko({required this.animate});
+class HankoStamp extends StatelessWidget {
+  const HankoStamp({super.key, required this.animate});
 
   final bool animate;
 

@@ -12,19 +12,44 @@ import '../../../core/date/local_date.dart';
 import '../../../core/db/app_database.dart';
 import '../../../core/money/money_text.dart';
 import '../../../core/pillars/pillars_provider.dart';
+import '../../checkin/data/checkin_providers.dart';
 import '../../expenses/data/expense_providers.dart';
 import '../../expenses/presentation/expense_tile.dart';
 import '../../periods/data/period_providers.dart';
 import '../../periods/domain/period_summary.dart';
+import '../../reflection/data/reflection_providers.dart';
+import '../../settings/data/settings_repository.dart';
 import '../../settings/domain/app_preferences.dart';
 import '../../transactions/presentation/transactions_screen.dart';
 import 'widgets/pillar_bar.dart';
 import 'widgets/savings_ring.dart';
 
+/// Settings key holding the id of the last month whose reflection was opened
+/// automatically, so it opens on its own only once (FR-50).
+const reflectionPromptedKey = 'reflection_prompted_period';
+
+/// Also remembered in memory, since the setting is written asynchronously.
+final _autoOpened = <int>{};
+
 /// Home: how much is left this month (MASTER.md §7.4, §8; PRD FR-30–37).
 /// Order: hero card → action cards → pillar bars → recent 5.
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
+
+  /// FR-50: when a month has ended, its reflection opens once by itself.
+  /// After that it waits as a card; logging is never blocked.
+  void _autoOpenReflection(BuildContext context, WidgetRef ref, Period? pending) {
+    final settings = ref.read(settingsProvider).value;
+    if (pending == null || settings == null) return;
+    if (settings[reflectionPromptedKey] == '${pending.id}' || _autoOpened.contains(pending.id)) {
+      return;
+    }
+    _autoOpened.add(pending.id);
+    ref.read(settingsRepositoryProvider).set(reflectionPromptedKey, '${pending.id}');
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (context.mounted) context.push(Routes.reflect(pending.id));
+    });
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -35,6 +60,18 @@ class DashboardScreen extends ConsumerWidget {
     if (period == null || summary == null) return const _Skeleton();
 
     final improvement = ref.watch(currentImprovementProvider).value;
+    final pending = ref.watch(pendingReflectionProvider).value;
+    ref.watch(settingsProvider);
+    _autoOpenReflection(context, ref, pending);
+    final week = ref.watch(currentWeekProvider);
+    final checkin = ref.watch(currentCheckinProvider);
+    final checkedIn = checkin.value != null;
+    // FR-83 stand-in until reminders arrive (M5): nudge on the week's last 2 days.
+    final checkinDue =
+        checkin.hasValue &&
+        !checkedIn &&
+        week != null &&
+        LocalDate.daysBetween(LocalDate.dateOnly(summary.today), week.end) <= 1;
     final expenses = ref.watch(periodExpensesProvider(period.id)).value ?? const <Expense>[];
     final fmt = DateFormat('d MMM');
     final planned = period.status != 'planning';
@@ -56,6 +93,18 @@ class DashboardScreen extends ConsumerWidget {
         const SizedBox(height: Space.s4),
         _HeroCard(summary: summary, planned: planned, savingsSetAside: period.savingsSetAside),
         const SizedBox(height: Space.s3),
+        if (pending != null) ...[
+          _ActionCard(
+            icon: Symbols.auto_stories_rounded,
+            accent: context.colors.seal,
+            text:
+                '${DateFormat('MMMM').format(LocalDate.parse(pending.startDate))} has ended. '
+                'Take five quiet minutes to reflect.',
+            actionLabel: 'Reflect',
+            onAction: () => context.push(Routes.reflect(pending.id)),
+          ),
+          const SizedBox(height: Space.s3),
+        ],
         if (!planned) ...[
           _ActionCard(
             icon: Symbols.target_rounded,
@@ -67,6 +116,16 @@ class DashboardScreen extends ConsumerWidget {
           const SizedBox(height: Space.s3),
         ] else if (summary.savingsGoal > 0 && !period.savingsSetAside) ...[
           _SaveFirstCard(periodId: period.id, goal: summary.savingsGoal),
+          const SizedBox(height: Space.s3),
+        ],
+        if (checkinDue) ...[
+          _ActionCard(
+            icon: Symbols.event_available_rounded,
+            accent: context.colors.info,
+            text: 'Weekly check-in: how did this week go?',
+            actionLabel: 'Check in',
+            onAction: () => context.push(Routes.checkin),
+          ),
           const SizedBox(height: Space.s3),
         ],
         if (improvement != null) ...[
@@ -102,17 +161,27 @@ class DashboardScreen extends ConsumerWidget {
         ),
         const SizedBox(height: Space.s3),
         _RecentCard(expenses: expenses, pillars: pillars, onSeeAll: () => openPillar(null)),
-        if (planned) ...[
-          const SizedBox(height: Space.s2),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: () => context.push(Routes.plan),
-              icon: const Icon(Symbols.edit_rounded, size: IconSizes.sm),
-              label: const Text('Edit plan'),
+        const SizedBox(height: Space.s2),
+        Wrap(
+          alignment: WrapAlignment.end,
+          spacing: Space.s2,
+          children: [
+            TextButton.icon(
+              onPressed: () => context.push(Routes.checkin),
+              icon: Icon(
+                checkedIn ? Symbols.check_circle_rounded : Symbols.event_available_rounded,
+                size: IconSizes.sm,
+              ),
+              label: Text(checkedIn ? 'Checked in this week' : 'Weekly check-in'),
             ),
-          ),
-        ],
+            if (planned)
+              TextButton.icon(
+                onPressed: () => context.push(Routes.plan),
+                icon: const Icon(Symbols.edit_rounded, size: IconSizes.sm),
+                label: const Text('Edit plan'),
+              ),
+          ],
+        ),
       ],
     );
   }

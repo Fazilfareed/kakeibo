@@ -96,6 +96,7 @@ void main() {
             savedAmount: 0,
             goalMet: false,
             improvement: const Value(' No food delivery '),
+            completedAt: const Value('2026-12-02T00:00:00Z'),
           ),
         );
     expect(await periods.watchImprovementFor(dec).first, 'No food delivery');

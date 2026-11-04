@@ -1,9 +1,11 @@
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/checkin/presentation/checkin_screen.dart';
 import '../features/dashboard/presentation/dashboard_screen.dart';
 import '../features/history/presentation/history_screen.dart';
 import '../features/periods/presentation/plan_month_screen.dart';
+import '../features/reflection/presentation/reflection_screen.dart';
 import '../features/settings/presentation/currency_format_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
 import '../features/transactions/presentation/transactions_screen.dart';
@@ -16,6 +18,8 @@ abstract final class Routes {
   static const settings = '/settings';
   static const currencyFormat = '/settings/currency';
   static const plan = '/plan';
+  static const checkin = '/checkin';
+  static String reflect(int periodId) => '/reflect/$periodId';
 }
 
 final _rootKey = GlobalKey<NavigatorState>();
@@ -30,6 +34,17 @@ GoRouter buildRouter() {
         path: Routes.plan,
         parentNavigatorKey: _rootKey,
         builder: (_, _) => const PlanMonthScreen(),
+      ),
+      GoRoute(
+        path: Routes.checkin,
+        parentNavigatorKey: _rootKey,
+        builder: (_, _) => const CheckinScreen(),
+      ),
+      GoRoute(
+        path: '/reflect/:periodId',
+        parentNavigatorKey: _rootKey,
+        builder: (_, state) =>
+            ReflectionScreen(periodId: int.parse(state.pathParameters['periodId']!)),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => AppShell(navigationShell: shell),

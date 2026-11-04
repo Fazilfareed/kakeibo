@@ -6,12 +6,17 @@ import 'package:kakeibo/core/date/local_date.dart';
 import 'package:kakeibo/core/db/app_database.dart';
 import 'package:kakeibo/core/money/money_text.dart';
 import 'package:kakeibo/core/pillars/pillars_provider.dart';
+import 'package:kakeibo/features/checkin/data/checkin_providers.dart';
+import 'package:kakeibo/features/checkin/data/checkin_repository.dart';
 import 'package:kakeibo/features/expenses/data/expense_providers.dart';
 import 'package:kakeibo/features/expenses/data/expense_repository.dart';
 import 'package:kakeibo/features/periods/data/period_providers.dart';
 import 'package:kakeibo/features/periods/domain/period_math.dart';
 import 'package:kakeibo/features/periods/domain/period_summary.dart';
 import 'package:kakeibo/features/dashboard/presentation/widgets/savings_ring.dart';
+import 'package:kakeibo/features/reflection/data/reflection_providers.dart';
+import 'package:kakeibo/features/reflection/data/reflection_repository.dart';
+import 'package:kakeibo/features/reflection/domain/reflection_summary.dart';
 import 'package:kakeibo/features/settings/data/settings_repository.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -27,6 +32,14 @@ const _pillars = [
 class _MockExpenses extends Mock implements ExpenseRepository {}
 
 class _FakeDraft extends Fake implements ExpenseDraft {}
+
+class _MockReflections extends Mock implements ReflectionRepository {}
+
+class _FakeReflectionDraft extends Fake implements ReflectionDraft {}
+
+class _MockCheckins extends Mock implements CheckinRepository {}
+
+class _MockSettings extends Mock implements SettingsRepository {}
 
 Period _period({String status = 'active'}) {
   final today = DateTime.now();
@@ -80,8 +93,15 @@ Widget _app({
   PeriodSummary? summary,
   List<Expense> spends = const [],
   String? improvement,
+  Period? pending,
+  ReflectionRepository? reflections,
+  ReflectionSummary? reflectionSummary,
+  CheckinRepository? checkins,
+  Map<int, int> weekTotals = const {},
 }) {
   final period = _period(status: status);
+  final settingsRepo = _MockSettings();
+  when(() => settingsRepo.set(any(), any())).thenAnswer((_) async {});
   return ProviderScope(
     overrides: [
       ledgerBootstrapProvider.overrideWith((ref) async {}),
@@ -93,6 +113,14 @@ Widget _app({
       periodExpensesProvider.overrideWith((ref, id) => Stream.value(spends)),
       paymentMethodsProvider.overrideWith((ref) => Stream.value(const <PaymentMethod>[])),
       if (expenses != null) expenseRepositoryProvider.overrideWithValue(expenses),
+      settingsRepositoryProvider.overrideWithValue(settingsRepo),
+      pendingReflectionProvider.overrideWith((ref) => Stream.value(pending)),
+      currentCheckinProvider.overrideWith((ref) => Stream.value(null)),
+      currentWeekTotalsProvider.overrideWith((ref) => Stream.value(weekTotals)),
+      if (reflections != null) reflectionRepositoryProvider.overrideWithValue(reflections),
+      if (reflectionSummary != null)
+        reflectionSummaryProvider.overrideWith((ref, id) async => reflectionSummary),
+      if (checkins != null) checkinRepositoryProvider.overrideWithValue(checkins),
     ],
     child: const KakeiboApp(),
   );
@@ -106,7 +134,11 @@ void _phoneScreen(WidgetTester tester) {
 }
 
 void main() {
-  setUpAll(() => registerFallbackValue(_FakeDraft()));
+  setUpAll(() {
+    registerFallbackValue(_FakeDraft());
+    registerFallbackValue(_FakeReflectionDraft());
+    registerFallbackValue(DateTime(2000));
+  });
 
   testWidgets('dashboard shows what is left and the pillars', (tester) async {
     _phoneScreen(tester);
@@ -252,5 +284,148 @@ void main() {
     }
     expect(tester.takeException(), isNull);
     expect(find.text('Lunch'), findsOneWidget);
+  });
+
+  group('M3 ritual', () {
+    const october = Period(
+      id: 9,
+      startDate: '2026-10-01',
+      endDate: '2026-10-31',
+      savingsGoal: 1500000,
+      savingsGoalType: 'amount',
+      savingsSetAside: true,
+      isPartial: false,
+      status: 'closed',
+      createdAt: '',
+      updatedAt: '',
+    );
+    Expense tagged(int id, int pillar, int amount, String note, String mood) => Expense(
+      id: id,
+      periodId: 9,
+      pillarId: pillar,
+      amount: amount,
+      date: '2026-10-10',
+      note: note,
+      mood: mood,
+      type: 'expense',
+      isLumpSum: false,
+      createdAt: '',
+      updatedAt: '',
+    );
+    final octoberSummary = ReflectionSummary(
+      period: october,
+      income: 12000000,
+      fixed: 4000000,
+      spentByPillar: const {1: 3250000, 2: 1350000, 3: 780000, 4: 1620000},
+      plannedByPillar: const {1: 3000000, 2: 1500000, 3: 1000000, 4: 1000000},
+      worthIt: [tagged(1, 3, 600000, 'Concert ticket', 'worth')],
+      regrets: [tagged(2, 2, 850000, 'New shoes', 'regret')],
+      previousImprovement: 'No food delivery',
+      isFirstReflection: true,
+    );
+
+    /// The text fields' caret blinks for ever, so pump a fixed time.
+    Future<void> settle(WidgetTester tester) async {
+      for (var i = 0; i < 8; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+    }
+
+    testWidgets('a finished month opens its reflection; Finish saves every answer', (tester) async {
+      _phoneScreen(tester);
+      final repo = _MockReflections();
+      when(() => repo.saveDraft(any())).thenAnswer((_) async {});
+      when(() => repo.complete(any())).thenAnswer((_) async {});
+
+      await tester.pumpWidget(
+        _app(pending: october, reflections: repo, reflectionSummary: octoberSummary),
+      );
+      await settle(tester);
+
+      // FR-50: opened by itself, starting with the month in numbers (FR-51, FR-59).
+      expect(find.text('Reflect on October'), findsOneWidget);
+      expect(find.text('You saved'), findsOneWidget);
+      expect(find.text('Rs 5,000 short of your Rs 15,000 goal.'), findsOneWidget);
+      expect(find.textContaining('Unexpected went Rs 6,200 over its plan.'), findsOneWidget);
+      expect(find.textContaining('try a goal of Rs 10,000'), findsOneWidget);
+      // Costs show a plain minus, not the red negative style.
+      expect(find.text('− '), findsNWidgets(2));
+
+      await tester.tap(find.text('Next'));
+      await settle(tester);
+      expect(find.text(ReflectionQuestions.q1), findsOneWidget);
+      expect(find.text(ReflectionQuestions.why1), findsOneWidget, reason: 'first reflection');
+      await tester.enterText(find.byType(TextField), 'Missed it by a little');
+
+      await tester.tap(find.text('Next'));
+      await settle(tester);
+      await tester.tap(find.text('Next'));
+      await settle(tester);
+      // FR-53: tagged spends.
+      expect(find.text(ReflectionQuestions.q3), findsOneWidget);
+      expect(find.text('New shoes'), findsOneWidget);
+      expect(find.text('Concert ticket'), findsOneWidget);
+
+      await tester.tap(find.text('Next'));
+      await settle(tester);
+      // FR-57: last month's improvement first.
+      expect(find.text('“No food delivery”'), findsOneWidget);
+      await tester.tap(find.text('Partly'));
+      await tester.pump();
+
+      await tester.tap(find.text('Next'));
+      await settle(tester);
+      expect(find.text(ReflectionQuestions.q4), findsOneWidget);
+      await tester.enterText(find.byType(TextField), 'Cook at home on weekdays');
+      await tester.tap(find.text('Finish'));
+      await settle(tester);
+
+      final draft = verify(() => repo.complete(captureAny())).captured.single as ReflectionDraft;
+      expect(draft.periodId, 9);
+      expect(draft.answer1, 'Missed it by a little');
+      expect(draft.improvementKept, ImprovementKept.partly);
+      expect(draft.improvement, 'Cook at home on weekdays');
+      verify(() => repo.saveDraft(any())).called(greaterThanOrEqualTo(4));
+      expect(find.text('Reflection saved. Your improvement is on Home.'), findsOneWidget);
+    });
+
+    testWidgets('once opened, a pending reflection waits as a Home card', (tester) async {
+      _phoneScreen(tester);
+      await tester.pumpWidget(
+        _app(
+          pending: october,
+          reflectionSummary: octoberSummary,
+          settings: {...AppDatabase.defaultSettings, 'reflection_prompted_period': '9'},
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Reflect on October'), findsNothing);
+      expect(find.text('October has ended. Take five quiet minutes to reflect.'), findsOneWidget);
+
+      await tester.tap(find.text('Reflect'));
+      await settle(tester);
+      expect(find.text('Reflect on October'), findsOneWidget);
+    });
+
+    testWidgets('weekly check-in shows the week by pillar and saves the note', (tester) async {
+      _phoneScreen(tester);
+      final repo = _MockCheckins();
+      when(() => repo.save(any(), any(), any())).thenAnswer((_) async {});
+      await tester.pumpWidget(_app(checkins: repo, weekTotals: const {1: 240000, 2: 60000}));
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(find.text('Weekly check-in'), 200);
+      await tester.tap(find.text('Weekly check-in'));
+      await tester.pumpAndSettle();
+      expect(find.text('This week you spent'), findsOneWidget);
+      expect(find.byWidgetPredicate((w) => w is MoneyText && w.cents == 300000), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'Watch eating out');
+      await tester.tap(find.text('Save check-in'));
+      await settle(tester);
+      final args = verify(() => repo.save(1, captureAny(), 'Watch eating out')).captured;
+      expect(args.single, isA<DateTime>());
+      expect(find.text('Check-in saved. See you next week.'), findsOneWidget);
+    });
   });
 }

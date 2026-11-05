@@ -208,6 +208,57 @@ class PeriodRepository {
             ..limit(1))
           .getSingleOrNull();
 
+  static const startDayKey = 'month_start_day';
+  static const pendingStartDayKey = 'pending_month_start_day';
+
+  /// FR-03: the day each month starts (1–28, e.g. salary day). If the current
+  /// month hasn't been used yet it moves at once; otherwise the change applies
+  /// from the next rollover. Returns true if it moved at once.
+  Future<bool> setMonthStartDay(int day, {DateTime? now}) {
+    final d = day.clamp(1, 28);
+    final today = LocalDate.dateOnly(now ?? DateTime.now());
+    return _db.transaction(() async {
+      Future<void> put(String k, String v) =>
+          _db.into(_db.settings).insertOnConflictUpdate(SettingsCompanion.insert(key: k, value: v));
+      await put(startDayKey, '$d');
+      final latest = await _latest();
+      final untouched =
+          latest != null &&
+          latest.status == 'planning' &&
+          (await _db.select(_db.periods).get()).length == 1 &&
+          (await (_db.select(
+            _db.expenses,
+          )..where((e) => e.periodId.equals(latest.id))).get()).isEmpty &&
+          (await (_db.select(
+            _db.incomes,
+          )..where((i) => i.periodId.equals(latest.id))).get()).isEmpty;
+      if (latest == null || untouched) {
+        if (latest != null) {
+          final range = PeriodMath.rangeContaining(today, d);
+          await (_db.update(_db.periods)..where((p) => p.id.equals(latest.id))).write(
+            PeriodsCompanion(
+              startDate: Value(LocalDate.format(range.start)),
+              endDate: Value(LocalDate.format(range.end)),
+              updatedAt: Value(LocalDate.nowStamp()),
+            ),
+          );
+        }
+        await (_db.delete(_db.settings)..where((x) => x.key.equals(pendingStartDayKey))).go();
+        return true;
+      }
+      final currentStart = LocalDate.parse(latest.startDate).day;
+      if (currentStart == d) {
+        await (_db.delete(_db.settings)..where((x) => x.key.equals(pendingStartDayKey))).go();
+      } else {
+        await put(pendingStartDayKey, '$d');
+      }
+      return false;
+    });
+  }
+
+  Future<String?> _setting(String key) async =>
+      (await (_db.select(_db.settings)..where((s) => s.key.equals(key))).getSingleOrNull())?.value;
+
   Future<int> _monthStartDay() async {
     final row = await (_db.select(
       _db.settings,
@@ -242,7 +293,21 @@ class PeriodRepository {
       LocalDate.parse(previous.startDate),
       LocalDate.parse(previous.endDate),
     );
-    final next = await _insertPeriod(PeriodMath.next(prevRange), savingsGoal: previous.savingsGoal);
+    // A changed start day (FR-03) applies here: one transition period runs
+    // from the day after the old one up to the new day's period end.
+    final pending = await _setting(pendingStartDayKey);
+    var range = PeriodMath.next(prevRange);
+    final newDay = int.tryParse(pending ?? '');
+    if (newDay != null) {
+      range = DateRange(range.start, PeriodMath.rangeContaining(range.start, newDay).end);
+      if (range.end.isBefore(range.start.add(const Duration(days: 13)))) {
+        // Too short to plan a month around: run on to the following one.
+        final after = range.end.add(const Duration(days: 1));
+        range = DateRange(range.start, PeriodMath.rangeContaining(after, newDay).end);
+      }
+      await (_db.delete(_db.settings)..where((x) => x.key.equals(pendingStartDayKey))).go();
+    }
+    final next = await _insertPeriod(range, savingsGoal: previous.savingsGoal);
     final plan = await loadPlan(previous.id);
 
     await _db.batch((b) {

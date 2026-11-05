@@ -15,6 +15,8 @@ import '../../../core/money/amount_input.dart';
 import '../../../core/money/currency_format.dart';
 import '../../../core/pillars/pillar_style.dart';
 import '../../../core/pillars/pillars_provider.dart';
+import '../../guide/domain/guide_state.dart';
+import '../../guide/presentation/coach_marks.dart';
 import '../../periods/data/period_providers.dart';
 import '../../settings/domain/app_preferences.dart';
 import '../data/expense_providers.dart';
@@ -47,12 +49,16 @@ class QuickAddSheet extends ConsumerStatefulWidget {
 }
 
 class _QuickAddSheetState extends ConsumerState<QuickAddSheet> {
+  final _amountKey = GlobalKey(debugLabel: 'coach-amount');
+  final _pillarsKey = GlobalKey(debugLabel: 'coach-pillar-grid');
+
   late AmountInput _amount;
   int? _pillarId;
   String? _note;
   late DateTime _date;
   Mood? _mood;
   int? _paymentMethodId;
+  bool _refund = false;
   List<String> _recentNotes = const [];
   bool _saving = false;
 
@@ -69,6 +75,7 @@ class _QuickAddSheetState extends ConsumerState<QuickAddSheet> {
     _date = e == null ? LocalDate.dateOnly(DateTime.now()) : LocalDate.parse(e.date);
     _mood = Mood.fromName(e?.mood);
     _paymentMethodId = e?.paymentMethodId;
+    _refund = e?.type == 'refund';
     ref.read(expenseRepositoryProvider).recentNotes().then((notes) {
       if (mounted) setState(() => _recentNotes = notes);
     });
@@ -117,8 +124,9 @@ class _QuickAddSheetState extends ConsumerState<QuickAddSheet> {
       amount: _amount.cents,
       date: LocalDate.format(_date),
       note: _note,
-      mood: _mood,
+      mood: _refund ? null : _mood,
       paymentMethodId: _paymentMethodId,
+      isRefund: _refund,
     );
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
@@ -150,7 +158,11 @@ class _QuickAddSheetState extends ConsumerState<QuickAddSheet> {
       HapticFeedback.lightImpact();
       SemanticsService.sendAnnouncement(
         view,
-        _isEdit ? 'Expense updated' : 'Saved $money to $pillarName',
+        _isEdit
+            ? 'Expense updated'
+            : _refund
+            ? 'Refund of $money added to $pillarName'
+            : 'Saved $money to $pillarName',
         textDirection,
       );
       navigator.pop();
@@ -174,6 +186,23 @@ class _QuickAddSheetState extends ConsumerState<QuickAddSheet> {
 
   @override
   Widget build(BuildContext context) {
+    // FR-95: the guided first expense.
+    if (!_isEdit) {
+      CoachMarks.maybeShow(context, ref, CoachScreen.quickAdd, [
+        CoachStep(
+          target: _amountKey,
+          title: 'How much?',
+          body: 'Type the amount on the number pad below. No keyboard needed.',
+        ),
+        CoachStep(
+          target: _pillarsKey,
+          title: 'Which pillar?',
+          body:
+              'Ask: do I need it? Needs for essentials, Wants for nice-to-haves, Culture for '
+              'books and outings, Unexpected for surprises. Then tap Save.',
+        ),
+      ]);
+    }
     final period = ref.watch(currentPeriodProvider).value;
     final pillars = ref.watch(pillarsProvider).value ?? const <Pillar>[];
     final methods = ref.watch(paymentMethodsProvider).value ?? const <PaymentMethod>[];
@@ -198,14 +227,26 @@ class _QuickAddSheetState extends ConsumerState<QuickAddSheet> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      _isEdit ? 'Edit expense' : 'Add expense',
+                      _refund
+                          ? (_isEdit ? 'Edit refund' : 'Add refund')
+                          : (_isEdit ? 'Edit expense' : 'Add expense'),
                       style: context.text.bodySmall,
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: Space.s2),
-                    _AmountDisplay(input: _amount, format: format),
+                    KeyedSubtree(
+                      key: _amountKey,
+                      child: _AmountDisplay(input: _amount, format: format),
+                    ),
                     const SizedBox(height: Space.s4),
-                    _PillarGrid(pillars: pillars, selectedId: _pillarId, onPick: _pickPillar),
+                    KeyedSubtree(
+                      key: _pillarsKey,
+                      child: _PillarGrid(
+                        pillars: pillars,
+                        selectedId: _pillarId,
+                        onPick: _pickPillar,
+                      ),
+                    ),
                     const SizedBox(height: Space.s4),
                     Wrap(
                       spacing: Space.s2,
@@ -237,6 +278,13 @@ class _QuickAddSheetState extends ConsumerState<QuickAddSheet> {
                             selected: method != null,
                           ),
                         ),
+                        // FR-28: money back lowers its pillar's spending.
+                        _OptionChip(
+                          icon: Symbols.undo_rounded,
+                          label: 'Refund',
+                          selected: _refund,
+                          onTap: () => setState(() => _refund = !_refund),
+                        ),
                       ],
                     ),
                     if (_note == null && _recentNotes.isNotEmpty) ...[
@@ -258,22 +306,31 @@ class _QuickAddSheetState extends ConsumerState<QuickAddSheet> {
                         ),
                       ),
                     ],
-                    const SizedBox(height: Space.s3),
-                    Text('How do you feel about it?', style: context.text.bodySmall),
-                    const SizedBox(height: Space.s2),
-                    Wrap(
-                      spacing: Space.s2,
-                      children: [
-                        for (final m in Mood.values)
-                          ChoiceChip(
-                            avatar: Icon(_moodIcon(m), size: 18),
-                            label: Text(m.label),
-                            selected: _mood == m,
-                            showCheckmark: false,
-                            onSelected: (s) => setState(() => _mood = s ? m : null),
-                          ),
-                      ],
-                    ),
+                    if (_refund) ...[
+                      const SizedBox(height: Space.s3),
+                      Text(
+                        'Choose the pillar of the original spend. This lowers its total.',
+                        style: context.text.bodySmall,
+                      ),
+                    ],
+                    if (!_refund) ...[
+                      const SizedBox(height: Space.s3),
+                      Text('How do you feel about it?', style: context.text.bodySmall),
+                      const SizedBox(height: Space.s2),
+                      Wrap(
+                        spacing: Space.s2,
+                        children: [
+                          for (final m in Mood.values)
+                            ChoiceChip(
+                              avatar: Icon(_moodIcon(m), size: 18),
+                              label: Text(m.label),
+                              selected: _mood == m,
+                              showCheckmark: false,
+                              onSelected: (s) => setState(() => _mood = s ? m : null),
+                            ),
+                        ],
+                      ),
+                    ],
                     const SizedBox(height: Space.s3),
                   ],
                 ),

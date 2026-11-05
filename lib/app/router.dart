@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 
 import '../features/checkin/presentation/checkin_screen.dart';
 import '../features/dashboard/presentation/dashboard_screen.dart';
+import '../features/guide/presentation/help_screen.dart';
+import '../features/guide/presentation/welcome_screen.dart';
 import '../features/history/presentation/history_screen.dart';
 import '../features/history/presentation/month_detail_screen.dart';
 import '../features/periods/presentation/plan_month_screen.dart';
@@ -22,6 +24,9 @@ abstract final class Routes {
   static const plan = '/plan';
   static const checkin = '/checkin';
   static const stats = '/stats';
+  static const welcome = '/welcome';
+  static const replayGuide = '/guide';
+  static const help = '/help';
   static String reflect(int periodId) => '/reflect/$periodId';
   static String month(int periodId) => '/history/$periodId';
 }
@@ -38,6 +43,28 @@ GoRouter buildRouter() {
         path: Routes.plan,
         parentNavigatorKey: _rootKey,
         builder: (_, _) => const PlanMonthScreen(),
+      ),
+      GoRoute(
+        path: Routes.help,
+        parentNavigatorKey: _rootKey,
+        builder: (_, _) => const HelpScreen(),
+        routes: [
+          GoRoute(
+            path: ':id',
+            parentNavigatorKey: _rootKey,
+            builder: (_, state) => HelpArticleScreen(id: state.pathParameters['id']!),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: Routes.welcome,
+        parentNavigatorKey: _rootKey,
+        builder: (_, _) => const WelcomeScreen(),
+      ),
+      GoRoute(
+        path: Routes.replayGuide,
+        parentNavigatorKey: _rootKey,
+        builder: (_, _) => const WelcomeScreen(replay: true),
       ),
       GoRoute(
         path: Routes.stats,

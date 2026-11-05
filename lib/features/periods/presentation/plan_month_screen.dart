@@ -9,6 +9,10 @@ import '../../../app/theme/tokens.dart';
 import '../../../core/money/amount_input.dart';
 import '../../../core/money/money_field.dart';
 import '../../../core/money/money_text.dart';
+import '../../guide/domain/guide_content.dart';
+import '../../guide/domain/guide_state.dart';
+import '../../guide/presentation/coach_marks.dart';
+import '../../guide/presentation/guide_widgets.dart';
 import '../../../core/pillars/pillar_style.dart';
 import '../../../core/pillars/pillars_provider.dart';
 import '../data/period_providers.dart';
@@ -41,6 +45,8 @@ class _Row {
 }
 
 class _PlanMonthScreenState extends ConsumerState<PlanMonthScreen> {
+  final _headerKey = GlobalKey(debugLabel: 'coach-spendable');
+  final _firstSectionKey = GlobalKey(debugLabel: 'coach-income');
   PeriodPlan? _plan;
   final List<_Row> _incomes = [];
   final List<_Row> _fixed = [];
@@ -153,6 +159,25 @@ class _PlanMonthScreenState extends ConsumerState<PlanMonthScreen> {
   @override
   Widget build(BuildContext context) {
     final plan = _plan;
+    if (plan != null) {
+      // FR-94: the guided first plan.
+      CoachMarks.maybeShow(context, ref, CoachScreen.plan, [
+        CoachStep(
+          target: _headerKey,
+          title: 'Spendable, live',
+          body:
+              'As you fill in income, fixed costs and your savings goal, this shows what is '
+              'left to spend. Tap (?) for the sum.',
+        ),
+        CoachStep(
+          target: _firstSectionKey,
+          title: 'Start with your income',
+          body:
+              'Take-home pay for the month, for example a salary of 150,000. Then fixed bills '
+              'like rent, then what you\u2019ll save first.',
+        ),
+      ]);
+    }
     final range = plan?.range;
     final fmt = DateFormat('d MMM');
 
@@ -163,6 +188,7 @@ class _PlanMonthScreenState extends ConsumerState<PlanMonthScreen> {
           : Column(
               children: [
                 _SpendableHeader(
+                  key: _headerKey,
                   income: _incomeTotal,
                   fixed: _fixedTotal,
                   savings: _savingsGoal,
@@ -178,6 +204,7 @@ class _PlanMonthScreenState extends ConsumerState<PlanMonthScreen> {
                     ),
                     children: [
                       _Section(
+                        key: _firstSectionKey,
                         number: 1,
                         title: 'How much money do I have?',
                         hint: 'Take-home income for this month.',
@@ -257,6 +284,7 @@ class _PlanMonthScreenState extends ConsumerState<PlanMonthScreen> {
 /// Sticky live summary: Spendable = Income − Fixed − Savings (FR-14).
 class _SpendableHeader extends StatelessWidget {
   const _SpendableHeader({
+    super.key,
     required this.income,
     required this.fixed,
     required this.savings,
@@ -294,7 +322,9 @@ class _SpendableHeader extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Expanded(child: Text('Spendable', style: context.text.titleMedium)),
+              Text('Spendable', style: context.text.titleMedium),
+              const InfoButton(info: GuideContent.spendable),
+              const Spacer(),
               MoneyText(spendable, style: context.moneyText.moneyM, hideZeroDecimals: true),
             ],
           ),
@@ -325,6 +355,7 @@ class _SpendableHeader extends StatelessWidget {
 
 class _Section extends StatelessWidget {
   const _Section({
+    super.key,
     this.number,
     required this.title,
     required this.hint,

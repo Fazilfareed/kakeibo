@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../features/expenses/presentation/quick_add_sheet.dart';
+import '../../features/guide/presentation/coach_marks.dart';
 import '../theme/kakeibo_colors.dart';
 import '../theme/kakeibo_text.dart';
 import '../theme/tokens.dart';
@@ -44,6 +45,7 @@ class AppShell extends StatelessWidget {
     return Scaffold(
       body: SafeArea(bottom: false, child: navigationShell),
       floatingActionButton: FloatingActionButton(
+        key: CoachTargets.fab,
         tooltip: 'Add expense',
         onPressed: () => showQuickAddSheet(context),
         child: const Icon(Symbols.add_rounded, size: 28),

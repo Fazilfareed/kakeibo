@@ -67,6 +67,39 @@ void main() {
     });
   });
 
+  group('month start day (FR-03)', () {
+    test('an untouched first month moves at once', () async {
+      await periods.ensureCurrentPeriod(now: DateTime(2026, 11, 3));
+      final moved = await periods.setMonthStartDay(25, now: DateTime(2026, 11, 3));
+      expect(moved, isTrue);
+      final p = (await db.select(db.periods).get()).single;
+      expect((p.startDate, p.endDate), ('2026-10-25', '2026-11-24'));
+    });
+
+    test('a month in use keeps its dates; the change applies at rollover', () async {
+      final nov = await periods.ensureCurrentPeriod(now: DateTime(2026, 11, 3));
+      await expenses.add(const ExpenseDraft(pillarId: 1, amount: 100, date: '2026-11-03'));
+      expect(await periods.setMonthStartDay(25, now: DateTime(2026, 11, 3)), isFalse);
+      final still = await (db.select(db.periods)..where((x) => x.id.equals(nov.id))).getSingle();
+      expect(still.endDate, '2026-11-30');
+
+      // A transition period runs to the day before the new start day, then
+      // months start on the 25th.
+      final dec = await periods.ensureCurrentPeriod(now: DateTime(2026, 12, 2));
+      expect((dec.startDate, dec.endDate), ('2026-12-01', '2026-12-24'));
+      final jan = await periods.ensureCurrentPeriod(now: DateTime(2026, 12, 26));
+      expect((jan.startDate, jan.endDate), ('2026-12-25', '2027-01-24'));
+    });
+
+    test('a very short transition runs on into the following month', () async {
+      await periods.ensureCurrentPeriod(now: DateTime(2026, 11, 3));
+      await expenses.add(const ExpenseDraft(pillarId: 1, amount: 100, date: '2026-11-03'));
+      await periods.setMonthStartDay(5, now: DateTime(2026, 11, 3));
+      final next = await periods.ensureCurrentPeriod(now: DateTime(2026, 12, 2));
+      expect((next.startDate, next.endDate), ('2026-12-01', '2027-01-04'));
+    });
+  });
+
   test('savePlan marks the period active and logs goal changes', () async {
     final p = await periods.ensureCurrentPeriod(now: DateTime(2026, 11, 3));
     const draft = PlanDraft(incomes: [], fixedCosts: [], savingsGoal: 100, budgets: {});
@@ -143,6 +176,20 @@ void main() {
             ),
           );
       expect(await expenses.watchPillarTotals(periodId).first, {2: 30000});
+    });
+
+    test('a refund from quick add lowers its pillar (FR-28)', () async {
+      await expenses.add(draft(2, 50000));
+      final id = await expenses.add(
+        const ExpenseDraft(pillarId: 2, amount: 15000, date: '2026-11-04', isRefund: true),
+      );
+      expect(await expenses.watchPillarTotals(periodId).first, {2: 35000});
+      final row = await (db.select(db.expenses)..where((e) => e.id.equals(id))).getSingle();
+      expect(row.type, 'refund');
+
+      // Editing it into a normal expense flips the sign back.
+      await expenses.update(id, const ExpenseDraft(pillarId: 2, amount: 15000, date: '2026-11-04'));
+      expect(await expenses.watchPillarTotals(periodId).first, {2: 65000});
     });
 
     test('rejects dates outside any period', () async {

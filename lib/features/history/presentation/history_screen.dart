@@ -14,9 +14,14 @@ import '../../../core/money/money_text.dart';
 import '../../../core/pillars/pillars_provider.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../settings/domain/app_preferences.dart';
+import '../../guide/domain/guide_state.dart';
+import '../../guide/presentation/coach_marks.dart';
 import '../data/history_providers.dart';
 import '../data/history_repository.dart';
 import 'widgets/history_charts.dart';
+
+final _lifetimeKey = GlobalKey(debugLabel: 'coach-lifetime');
+final _statsKey = GlobalKey(debugLabel: 'coach-stats');
 
 /// Past months and trends (PRD §6.7, S9): lifetime savings, the savings
 /// trend, spend per pillar, then one card per finished month.
@@ -28,6 +33,22 @@ class HistoryScreen extends ConsumerWidget {
     final months = ref.watch(historyMonthsProvider).value;
     final pillars = ref.watch(pillarsProvider).value ?? const <Pillar>[];
     final closed = months?.where((m) => m.isClosed).toList() ?? const <MonthRecord>[];
+    if (closed.isNotEmpty) {
+      CoachMarks.maybeShow(context, ref, CoachScreen.history, [
+        CoachStep(
+          target: _lifetimeKey,
+          title: 'Saved so far',
+          body:
+              'What every finished month saved, added up. Tap a month below for its details '
+              'and your reflection.',
+        ),
+        CoachStep(
+          target: _statsKey,
+          title: 'My stats',
+          body: 'Your logging streak and habits, worked out on this phone.',
+        ),
+      ]);
+    }
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(Space.gutter, Space.s3, Space.gutter, 96),
@@ -36,6 +57,7 @@ class HistoryScreen extends ConsumerWidget {
           children: [
             Expanded(child: Text('History', style: context.text.headlineSmall)),
             TextButton.icon(
+              key: _statsKey,
               onPressed: () => context.push(Routes.stats),
               icon: const Icon(Symbols.insights_rounded, size: IconSizes.sm),
               label: const Text('My stats'),
@@ -53,7 +75,10 @@ class HistoryScreen extends ConsumerWidget {
           ),
         ] else ...[
           const SizedBox(height: Space.s4),
-          _LifetimeCard(closed: closed),
+          KeyedSubtree(
+            key: _lifetimeKey,
+            child: _LifetimeCard(closed: closed),
+          ),
           if (closed.length >= 2) ...[
             const SizedBox(height: Space.s3),
             _ChartCard(

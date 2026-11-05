@@ -283,7 +283,7 @@ class SettingsScreen extends ConsumerWidget {
           child: ListTile(
             leading: Icon(Symbols.info_rounded),
             title: Text('Kakeibo'),
-            subtitle: Text('Version 0.1.0 · Your data stays on this phone.'),
+            subtitle: Text('Version 1.0.0 · Your data stays on this phone.'),
           ),
         ),
       ],

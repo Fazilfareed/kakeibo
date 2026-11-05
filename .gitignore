@@ -61,3 +61,6 @@ kakeibo-backup-*.json
 # Local-only Claude Code settings and Python caches from skills
 .claude/settings.local.json
 __pycache__/
+
+# Gradle build output from the Android project (generated)
+android/build/

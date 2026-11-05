@@ -52,12 +52,17 @@ abstract final class CoachMarks {
       }
       await ref.read(settingsRepositoryProvider).set(GuideKeys.coachSeen(screen), 'true');
       if (!context.mounted) return;
-      final overlay = Overlay.of(context, rootOverlay: true);
-      late OverlayEntry entry;
-      entry = OverlayEntry(
-        builder: (_) => _CoachOverlay(steps: visible, onDone: () => entry.remove()),
+      // A see-through route, not a loose overlay: Back closes the marks
+      // instead of leaving them over whatever screen comes next.
+      await Navigator.of(context, rootNavigator: true).push(
+        PageRouteBuilder<void>(
+          opaque: false,
+          transitionDuration: Duration.zero,
+          reverseTransitionDuration: Duration.zero,
+          pageBuilder: (routeContext, _, _) =>
+              _CoachOverlay(steps: visible, onDone: () => Navigator.of(routeContext).pop()),
+        ),
       );
-      overlay.insert(entry);
     });
   }
 

@@ -876,4 +876,27 @@ void main() {
       expect(find.text('I started mid-month', findRichText: true), findsOneWidget);
     });
   });
+
+  testWidgets('Back closes a coach mark instead of leaving it over the next screen', (
+    tester,
+  ) async {
+    _phoneScreen(tester);
+    await tester.pumpWidget(
+      _app(
+        settings: {
+          ...AppDatabase.defaultSettings,
+          GuideKeys.coachSeen(CoachScreen.dashboard): 'false',
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pumpAndSettle();
+    expect(find.text('What’s left this month'), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('What’s left this month'), findsNothing);
+    expect(find.text('Left to spend'), findsOneWidget, reason: 'Home is still there');
+  });
 }

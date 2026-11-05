@@ -64,3 +64,9 @@ __pycache__/
 
 # Gradle build output from the Android project (generated)
 android/build/
+
+# Release APKs for download (binaries, not source)
+kakeibo-app-build/
+
+# Site download copies (made from kakeibo-app-build by sync-downloads.ps1)
+kakeibo-site/downloads/

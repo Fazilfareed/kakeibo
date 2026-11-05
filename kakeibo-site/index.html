@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kakeibo: save money the calm Japanese way</title>
+<meta name="description" content="Kakeibo is a free, offline Android app for planning your month, logging spending in three taps, and reflecting once a month. Based on the Japanese kakeibo household account book.">
+<link rel="icon" href="images/icon.svg" type="image/svg+xml">
+<link rel="preload" href="fonts/Lora-Variable.ttf" as="font" type="font/ttf" crossorigin>
+<style>
+@font-face { font-family: "Lora"; src: url("fonts/Lora-Variable.ttf") format("truetype"); font-weight: 400 700; font-display: swap; }
+@font-face { font-family: "Inter"; src: url("fonts/Inter-Variable.ttf") format("truetype"); font-weight: 100 900; font-display: swap; }
+
+:root {
+  --bg: #F6F1E7; --surface: #FFFCF6; --sunken: #EFE8DA; --ink: #221F1A; --ink2: #5E574C; --ink3: #857D70;
+  --divider: #E2D9C8; --needs: #3D6B4C; --wants: #A24A22; --culture: #6A568F; --unexpected: #2D628C;
+  --seal: #B7322C; --success: #3D6B4C;
+  --mincho: "Yu Mincho", "YuMincho", "Hiragino Mincho ProN", "Noto Serif JP", "Noto Serif CJK JP", "MS Mincho", serif;
+  --radius: 16px; --max: 1080px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #151412; --surface: #1F1D1A; --sunken: #100F0D; --ink: #F1EBDF; --ink2: #C4BBAC; --ink3: #9A9183;
+    --divider: #36312A; --needs: #7FB08E; --wants: #E39467; --culture: #AE9BD6; --unexpected: #7CB0DA; --seal: #E5675F; --success: #8FBF9C;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #151412; --surface: #1F1D1A; --sunken: #100F0D; --ink: #F1EBDF; --ink2: #C4BBAC; --ink3: #9A9183;
+  --divider: #36312A; --needs: #7FB08E; --wants: #E39467; --culture: #AE9BD6; --unexpected: #7CB0DA; --seal: #E5675F; --success: #8FBF9C;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 Inter, system-ui, -apple-system, "Segoe UI", sans-serif; }
+[lang="ja"] { font-family: var(--mincho); }
+h1, h2, h3 { font-family: Lora, Georgia, serif; font-weight: 600; line-height: 1.15; margin: 0; }
+p { margin: 0; }
+a { color: inherit; }
+img { display: block; max-width: 100%; height: auto; }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; border-radius: 6px; }
+.skip { position: absolute; left: -999px; top: 8px; background: var(--ink); color: var(--bg); padding: 8px 12px; border-radius: 8px; z-index: 9; }
+.skip:focus { left: 8px; }
+.wrap { max-width: var(--max); margin: 0 auto; padding: 0 20px; }
+section { padding: 72px 0; }
+.eyebrow { font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink3); }
+.lead { font-size: 19px; color: var(--ink2); max-width: 36em; }
+h2 { font-size: clamp(28px, 4vw, 38px); margin-bottom: 12px; }
+.center { text-align: center; }
+.center .lead { margin: 0 auto; }
+
+/* ---------- header */
+.top { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--bg) 90%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--divider); }
+.top .wrap { display: flex; align-items: center; gap: 16px; min-height: 64px; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; font: 600 19px/1 Lora, Georgia, serif; margin-right: auto; }
+.mark { width: 36px; height: 36px; border-radius: 10px; background: var(--ink); color: var(--bg); display: grid; place-items: center; font: 600 19px/1 var(--mincho); }
+.nav { display: flex; gap: 6px; align-items: center; }
+.nav a { text-decoration: none; color: var(--ink2); padding: 8px 10px; border-radius: 10px; font-size: 15px; min-height: 40px; display: inline-flex; align-items: center; }
+.nav a:hover { color: var(--ink); background: var(--sunken); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; padding: 0 22px; border-radius: 14px; font: 600 16px/1 Inter, system-ui, sans-serif; text-decoration: none; background: var(--ink); color: var(--bg); border: 1px solid var(--ink); }
+.btn:hover { transform: translateY(-1px); }
+.btn.ghost { background: transparent; color: var(--ink); border-color: var(--divider); }
+.btn small { font-weight: 500; opacity: .75; font-size: 13px; }
+.nav a.btn, .nav a.btn:hover { color: var(--bg); background: var(--ink); }
+@media (max-width: 720px) { .nav a:not(.btn) { display: none; } }
+
+/* ---------- hero */
+.hero { position: relative; overflow: hidden; padding: 72px 0 80px; }
+.hero .wrap { display: grid; grid-template-columns: auto 1fr; gap: 48px; align-items: center; }
+.kanji-col { writing-mode: vertical-rl; font: 600 clamp(88px, 14vw, 150px)/1 var(--mincho); letter-spacing: .12em; color: var(--ink); border-right: 3px solid var(--seal); padding-right: 22px; }
+.hero h1 { font-size: clamp(40px, 6vw, 64px); margin: 14px 0 18px; }
+.hero .lead { margin-bottom: 28px; }
+.actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.facts { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 24px; font-size: 14px; color: var(--ink3); }
+.facts span::before { content: "✓ "; color: var(--success); }
+.phone-hero { justify-self: end; width: min(300px, 80vw); }
+.phone { border: 9px solid #2b2722; border-radius: 34px; overflow: hidden; background: #2b2722; box-shadow: 0 24px 60px -28px rgba(0,0,0,.35); }
+.phone img { width: 100%; }
+.enso { position: absolute; width: 520px; height: 520px; right: -170px; top: -120px; color: var(--ink); opacity: .05; pointer-events: none; }
+@media (max-width: 820px) {
+  .hero .wrap { grid-template-columns: 1fr; gap: 32px; }
+  .kanji-col { writing-mode: horizontal-tb; font-size: 72px; border-right: 0; border-bottom: 3px solid var(--seal); padding: 0 0 8px; justify-self: start; }
+  .phone-hero { justify-self: center; }
+}
+
+/* ---------- method */
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 36px; }
+.step { background: var(--surface); border: 1px solid var(--divider); border-radius: var(--radius); padding: 24px; }
+.step .jp { font-size: 34px; color: var(--seal); }
+.step h3 { font-size: 22px; margin: 8px 0 8px; }
+.step p { color: var(--ink2); }
+@media (max-width: 720px) { .steps { grid-template-columns: 1fr; } }
+
+/* ---------- pillars */
+.pillars { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 36px; }
+.pillar { background: var(--surface); border: 1px solid var(--divider); border-top: 5px solid var(--c); border-radius: var(--radius); padding: 22px 18px; }
+.pillar .jp { font-size: 34px; color: var(--c); line-height: 1.1; }
+.pillar h3 { font-size: 20px; margin: 10px 0 6px; }
+.pillar p { color: var(--ink2); font-size: 15px; }
+.p-needs { --c: var(--needs); } .p-wants { --c: var(--wants); } .p-culture { --c: var(--culture); } .p-unexpected { --c: var(--unexpected); }
+.note { margin-top: 22px; color: var(--ink2); font-size: 15px; }
+@media (max-width: 900px) { .pillars { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 520px) { .pillars { grid-template-columns: 1fr; } }
+
+/* ---------- features */
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 36px; }
+.feat { background: var(--surface); border: 1px solid var(--divider); border-radius: var(--radius); padding: 22px; }
+.feat h3 { font-size: 19px; margin-bottom: 6px; }
+.feat p { color: var(--ink2); font-size: 15px; }
+@media (max-width: 900px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
+
+/* ---------- screens */
+.screens { background: var(--sunken); }
+.shots { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; margin-top: 36px; align-items: start; }
+.shot figure { margin: 0; }
+.shot .phone { border-width: 6px; border-radius: 22px; }
+.shot figcaption { text-align: center; margin-top: 10px; font-size: 14px; color: var(--ink2); }
+@media (max-width: 1000px) { .shots { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 560px) { .shots { grid-template-columns: repeat(2, 1fr); } }
+
+/* ---------- download */
+.dl { display: grid; grid-template-columns: 1.2fr 1fr; gap: 18px; margin-top: 36px; align-items: stretch; }
+.dl-card { background: var(--surface); border: 1px solid var(--divider); border-radius: var(--radius); padding: 26px; display: flex; flex-direction: column; gap: 14px; }
+.dl-card h3 { font-size: 22px; }
+.dl-card p { color: var(--ink2); font-size: 15px; }
+.dl-card .btn { width: 100%; }
+.tag { align-self: flex-start; font-size: 12.5px; padding: 4px 10px; border-radius: 999px; background: var(--sunken); color: var(--ink2); }
+.checks { margin: 0; padding: 0; list-style: none; color: var(--ink2); font-size: 15px; display: grid; gap: 8px; }
+.checks li::before { content: "✓ "; color: var(--success); }
+details { margin-top: 36px; background: var(--surface); border: 1px solid var(--divider); border-radius: var(--radius); padding: 16px 20px; }
+details summary { cursor: pointer; font-weight: 600; }
+details p, details code { font-size: 14px; color: var(--ink2); word-break: break-all; }
+details code { display: block; margin: 6px 0; font-family: ui-monospace, Consolas, monospace; }
+@media (max-width: 760px) { .dl { grid-template-columns: 1fr; } }
+
+/* ---------- guide */
+.guide { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px; background: var(--ink); color: var(--bg); border-radius: 22px; padding: 36px; }
+.guide h2 { color: var(--bg); margin: 0 0 6px; }
+.guide p { color: color-mix(in srgb, var(--bg) 80%, transparent); max-width: 34em; }
+.guide .btn { background: var(--bg); color: var(--ink); border-color: var(--bg); }
+.guide .btn.ghost { background: transparent; color: var(--bg); border-color: color-mix(in srgb, var(--bg) 40%, transparent); }
+.guide-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+
+/* ---------- privacy */
+.privacy { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; }
+.privacy ul { margin: 0; padding-left: 1.2em; color: var(--ink2); }
+.privacy li { margin: 8px 0; }
+@media (max-width: 760px) { .privacy { grid-template-columns: 1fr; } }
+
+footer { border-top: 1px solid var(--divider); padding: 32px 0 48px; color: var(--ink3); font-size: 14px; }
+footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; }
+footer a { color: var(--ink2); }
+
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .btn:hover { transform: none; } }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="Kakeibo home"><span class="mark" lang="ja" aria-hidden="true">家</span>Kakeibo</a>
+    <nav class="nav" aria-label="Main">
+      <a href="#method">Method</a>
+      <a href="#features">Features</a>
+      <a href="#screens">Screens</a>
+      <a href="#guide">Guide</a>
+      <a class="btn" href="#download" style="min-height:40px;padding:0 16px;font-size:15px">Download</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+<!-- HERO -->
+<section class="hero" id="top" style="padding-top:64px">
+  <svg class="enso" viewBox="0 0 200 200" aria-hidden="true"><path d="M100 18 C 150 16, 186 52, 184 100 C 182 150, 146 184, 98 182 C 52 180, 16 146, 18 98 C 20 62, 44 32, 78 22" fill="none" stroke="currentColor" stroke-width="14" stroke-linecap="round"/></svg>
+  <div class="wrap">
+    <div>
+      <p class="kanji-col" lang="ja" aria-hidden="true">家計簿</p>
+    </div>
+    <div>
+      <p class="eyebrow">Free · Android · Version 1.0.0</p>
+      <h1>Save money the calm Japanese way.</h1>
+      <p class="lead">Kakeibo is a household account book, reimagined for your phone. Plan your month,
+      log each spend in three taps, and reflect once a month on what to change. Everything stays on
+      your phone.</p>
+      <div class="actions">
+        <a class="btn" href="#download">Download for Android <small>23.7 MB</small></a>
+        <a class="btn ghost" href="#guide">Read the user guide</a>
+      </div>
+      <div class="facts">
+        <span>No account</span><span>No internet needed</span><span>No ads</span><span>Works offline</span>
+      </div>
+    </div>
+  </div>
+  <div class="wrap" style="margin-top:56px;display:flex;justify-content:center">
+    <div class="phone-hero"><div class="phone"><img src="images/home.jpg" width="460" height="1002" alt="Kakeibo Home screen: left to spend this month, the savings ring and four pillar bars"></div></div>
+  </div>
+</section>
+
+<!-- METHOD -->
+<section id="method">
+  <div class="wrap center">
+    <p class="eyebrow">The method</p>
+    <h2>A notebook habit, made easy.</h2>
+    <p class="lead">Kakeibo (家計簿) was created in Japan in 1904 as a simple household account book. Writing
+    each spend down, and stopping to think about it, is what helps people save. This app keeps that
+    habit and does the sums for you.</p>
+    <div class="steps" style="text-align:left">
+      <article class="step">
+        <p class="jp" lang="ja">計画</p>
+        <h3>Plan</h3>
+        <p>At the start of the month, enter your income, fixed costs and the savings you'll set aside first.
+        The app shows what you can spend.</p>
+      </article>
+      <article class="step">
+        <p class="jp" lang="ja">記録</p>
+        <h3>Log</h3>
+        <p>Each spend takes three taps: type the amount, pick one of the four pillars, and save. Add a note
+        or a mood if you like.</p>
+      </article>
+      <article class="step">
+        <p class="jp" lang="ja">反省</p>
+        <h3>Reflect</h3>
+        <p>At the end of the month, see what you saved and answer the four questions. Choose one thing to
+        do better next month.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- PILLARS -->
+<section style="padding-top:0">
+  <div class="wrap center">
+    <p class="eyebrow">Four pillars</p>
+    <h2>Every spend has a place.</h2>
+    <p class="lead">When you're not sure which pillar, ask yourself: do I need it, or do I want it?</p>
+    <div class="pillars" style="text-align:left">
+      <article class="pillar p-needs"><p class="jp" lang="ja">生活</p><h3>Needs</h3><p>Groceries, bus fare, electricity, medicine.</p></article>
+      <article class="pillar p-wants"><p class="jp" lang="ja">嗜好</p><h3>Wants</h3><p>Eating out, shopping, takeaway, things you enjoy.</p></article>
+      <article class="pillar p-culture"><p class="jp" lang="ja">文化</p><h3>Culture</h3><p>Books, a course, a concert, a museum.</p></article>
+      <article class="pillar p-unexpected"><p class="jp" lang="ja">予想外</p><h3>Unexpected</h3><p>Repairs, a doctor's visit, the surprises that always come.</p></article>
+    </div>
+    <p class="note">Each pillar has its own budget, and its bar fills as you spend. Amber means close, red means over.</p>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features" style="padding-top:0">
+  <div class="wrap center">
+    <p class="eyebrow">Features</p>
+    <h2>Everything you need, nothing you don't.</h2>
+    <div class="grid" style="text-align:left">
+      <article class="feat"><h3>Left to spend, every day</h3><p>See what's left this month and how much a day keeps you on track. Tap (?) to see how each number is worked out.</p></article>
+      <article class="feat"><h3>A savings ring</h3><p>Your goal at a glance. It shows where you're heading at your current pace, and a red "saved" stamp once you've set the money aside.</p></article>
+      <article class="feat"><h3>Three-tap logging</h3><p>Amount, pillar, save. Add a note, the date, how you paid, and whether it was worth it. Swipe to delete, with Undo.</p></article>
+      <article class="feat"><h3>Refunds</h3><p>Money back? Record a refund against the original pillar, so its total goes down.</p></article>
+      <article class="feat"><h3>A monthly reflection</h3><p>When a month ends, see what you saved and answer the four Kakeibo questions. Your one improvement appears on Home all month.</p></article>
+      <article class="feat"><h3>Weekly check-in</h3><p>Once a week, see the week by pillar, and write one thing to watch next week.</p></article>
+      <article class="feat"><h3>History and My stats</h3><p>Saved so far, a savings line by month, spending by pillar, your logging streak and your habits.</p></article>
+      <article class="feat"><h3>Gentle reminders</h3><p>An evening nudge to log, a weekly check-in, and reminders to plan and reflect. Turn on only what you want.</p></article>
+      <article class="feat"><h3>PIN and fingerprint lock</h3><p>Keep your spending private with a PIN or your fingerprint, with a recovery code in case you forget.</p></article>
+      <article class="feat"><h3>Backups you control</h3><p>Back up to a folder once a week, or save a backup file any time. Restore it on a new phone.</p></article>
+      <article class="feat"><h3>Learn as you go</h3><p>A short welcome tour, tips on each screen, and an offline Help Center with answers to common questions.</p></article>
+      <article class="feat"><h3>Sri Lankan Rupees</h3><p>Amounts show as Rs 12,500.00, and you can change the symbol to LKR, Rs. or your own.</p></article>
+    </div>
+  </div>
+</section>
+
+<!-- SCREENS -->
+<section id="screens" class="screens">
+  <div class="wrap center">
+    <p class="eyebrow">Screens</p>
+    <h2>Calm, clear, and yours.</h2>
+    <p class="lead">Light and dark themes, with large text and screen-reader support.</p>
+    <div class="shots">
+      <figure class="shot"><div class="phone"><img src="images/home.jpg" width="460" height="1002" loading="lazy" alt="Home screen with left to spend and pillar bars"></div><figcaption>Home</figcaption></figure>
+      <figure class="shot"><div class="phone"><img src="images/quick-add.jpg" width="460" height="1002" loading="lazy" alt="Quick add: number pad and four pillar tiles"></div><figcaption>Quick add</figcaption></figure>
+      <figure class="shot"><div class="phone"><img src="images/plan.jpg" width="460" height="1002" loading="lazy" alt="Plan your month with income, fixed costs and the spendable total"></div><figcaption>Plan</figcaption></figure>
+      <figure class="shot"><div class="phone"><img src="images/spends.jpg" width="460" height="1002" loading="lazy" alt="Spends list grouped by day"></div><figcaption>Spends</figcaption></figure>
+      <figure class="shot"><div class="phone"><img src="images/history.jpg" width="460" height="1002" loading="lazy" alt="History with saved so far and spending by pillar"></div><figcaption>History</figcaption></figure>
+      <figure class="shot"><div class="phone"><img src="images/my-stats.jpg" width="460" height="1002" loading="lazy" alt="My stats with logging streak and habits"></div><figcaption>My stats</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<!-- DOWNLOAD -->
+<section id="download">
+  <div class="wrap center">
+    <p class="eyebrow">Download</p>
+    <h2>Get Kakeibo for Android.</h2>
+    <p class="lead">A signed release, version 1.0.0. Needs Android 8.0 or newer.</p>
+    <div class="dl" style="text-align:left">
+      <article class="dl-card">
+        <span class="tag">Recommended</span>
+        <h3>Most phones (64-bit)</h3>
+        <p>For nearly all Android phones made in the last several years.</p>
+        <a class="btn" href="downloads/kakeibo-1.0.0-arm64-v8a.apk" download>Download APK <small>23.7 MB</small></a>
+        <p style="font-size:13px">kakeibo-1.0.0-arm64-v8a.apk</p>
+      </article>
+      <article class="dl-card">
+        <span class="tag">Older phones (32-bit)</span>
+        <h3>Older Android phones</h3>
+        <p>If the 64-bit file won't install, try this one.</p>
+        <a class="btn ghost" href="downloads/kakeibo-1.0.0-armeabi-v7a.apk" download>Download APK <small>21.2 MB</small></a>
+        <p style="font-size:13px">kakeibo-1.0.0-armeabi-v7a.apk</p>
+      </article>
+    </div>
+    <div style="margin-top:28px;text-align:left;max-width:760px;margin-left:auto;margin-right:auto">
+      <ul class="checks">
+        <li>Open the downloaded file. Android may ask you to allow installs from this source. Allow it for your browser or file manager, then install.</li>
+        <li>No Google Play needed. Kakeibo doesn't ask for internet access, and it works fully offline.</li>
+        <li>Updates install over your existing app, and your data stays.</li>
+      </ul>
+    </div>
+    <details style="text-align:left;max-width:760px;margin-left:auto;margin-right:auto">
+      <summary>Check your download (SHA-256)</summary>
+      <p style="margin-top:10px">Compare the file's checksum to confirm it's the file we published.</p>
+      <code>46ceb30c0ab283eef82a61db9a095966f8d03174384d771be5e776ba920b0cc6  kakeibo-1.0.0-arm64-v8a.apk</code>
+      <code>aba1b88fb993c5e455aa2d40281b301cc7a6447d77b9bdb1bd11a4e5a14a8c84  kakeibo-1.0.0-armeabi-v7a.apk</code>
+    </details>
+  </div>
+</section>
+
+<!-- GUIDE -->
+<section id="guide" style="padding-top:0">
+  <div class="wrap">
+    <div class="guide">
+      <div>
+        <h2>New to Kakeibo?</h2>
+        <p>The user guide covers the method, every screen, backups, the PIN lock and the Help Center, with screenshots from the app.</p>
+      </div>
+      <div class="guide-actions">
+        <a class="btn" href="guide/Kakeibo_User_Guide.html">Open the user guide</a>
+        <a class="btn ghost" href="guide/Kakeibo_User_Guide.pdf" download>Download PDF</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRIVACY -->
+<section>
+  <div class="wrap privacy">
+    <div>
+      <p class="eyebrow">Privacy</p>
+      <h2>Your money stays on your phone.</h2>
+      <p class="lead" style="margin-top:12px">Kakeibo has no account, no ads and no analytics. Nothing you enter is sent anywhere.</p>
+    </div>
+    <ul>
+      <li>No internet permission: the app cannot send your data.</li>
+      <li>Your PIN is stored only as a scrambled version, never in plain text.</li>
+      <li>Backups are files you save and share yourself. They aren't encrypted, so keep them private.</li>
+      <li>Only the folder you choose for backups is accessed.</li>
+    </ul>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Kakeibo · Version 1.0.0</span>
+    <span><a href="#top">Back to top</a> · <a href="guide/Kakeibo_User_Guide.html">User guide</a></span>
+  </div>
+</footer>
+</body>
+</html>

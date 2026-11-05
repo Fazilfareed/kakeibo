@@ -13,6 +13,9 @@ import '../../../core/db/database_provider.dart';
 import '../../backup/data/auto_backup.dart';
 import '../../backup/presentation/backup_actions.dart';
 import '../../checkin/data/checkin_providers.dart';
+import '../../guide/domain/guide_state.dart';
+import '../../guide/presentation/coach_marks.dart';
+import '../../periods/data/period_providers.dart';
 import '../../lock/presentation/security_settings_card.dart';
 import '../../reminders/presentation/reminder_settings_card.dart';
 import '../data/settings_repository.dart';
@@ -55,6 +58,47 @@ class SettingsScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Month starts on', style: context.text.titleMedium),
+                          Text(
+                            all['pending_month_start_day'] != null
+                                ? 'Day ${all['pending_month_start_day']} from next month'
+                                : 'Your salary day, if you have one',
+                            style: context.text.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                    DropdownButton<int>(
+                      value: int.tryParse(all['month_start_day'] ?? '') ?? 1,
+                      underline: const SizedBox.shrink(),
+                      items: [
+                        for (var d = 1; d <= 28; d++)
+                          DropdownMenuItem(value: d, child: Text('Day $d')),
+                      ],
+                      onChanged: (d) async {
+                        if (d == null) return;
+                        final messenger = ScaffoldMessenger.of(context);
+                        final now = await ref.read(periodRepositoryProvider).setMonthStartDay(d);
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              now
+                                  ? 'This month now starts on day $d.'
+                                  : 'From next month, months start on day $d.',
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+                const Divider(height: Space.s6),
                 Text('Week starts on', style: context.text.titleMedium),
                 const SizedBox(height: Space.s1),
                 Text('Used for the weekly check-in.', style: context.text.bodySmall),
@@ -193,11 +237,44 @@ class SettingsScreen extends ConsumerWidget {
         const SizedBox(height: Space.s5),
         const _SectionLabel('Help'),
         Card(
-          child: ListTile(
-            leading: const Icon(Symbols.bug_report_rounded),
-            title: const Text('Export diagnostics'),
-            subtitle: const Text('Errors logged on this phone, to share if something goes wrong'),
-            onTap: () => BackupActions.exportDiagnostics(context),
+          child: Column(
+            children: [
+              ListTile(
+                leading: const Icon(Symbols.help_rounded),
+                title: const Text('Help Center'),
+                subtitle: const Text('Kakeibo basics, how-tos and questions'),
+                trailing: Icon(Symbols.chevron_right_rounded, color: c.ink3),
+                onTap: () => context.push(Routes.help),
+              ),
+              const Divider(indent: 56),
+              ListTile(
+                leading: const Icon(Symbols.replay_rounded),
+                title: const Text('Replay guide'),
+                subtitle: const Text('The welcome tour and screen tips again'),
+                onTap: () async {
+                  await ref.read(settingsRepositoryProvider).setAll(all.guideReset);
+                  CoachMarks.reset();
+                  if (context.mounted) context.push(Routes.replayGuide);
+                },
+              ),
+              const Divider(indent: 56),
+              SwitchListTile(
+                secondary: const Icon(Symbols.lightbulb_rounded),
+                title: const Text('Tip of the day on Home'),
+                value: all.tipsOn,
+                onChanged: (v) =>
+                    ref.read(settingsRepositoryProvider).set(GuideKeys.tipsEnabled, '$v'),
+              ),
+              const Divider(indent: 56),
+              ListTile(
+                leading: const Icon(Symbols.bug_report_rounded),
+                title: const Text('Export diagnostics'),
+                subtitle: const Text(
+                  'Errors logged on this phone, to share if something goes wrong',
+                ),
+                onTap: () => BackupActions.exportDiagnostics(context),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: Space.s5),

@@ -24,6 +24,7 @@ class ExpenseDraft {
     this.note,
     this.mood,
     this.paymentMethodId,
+    this.isRefund = false,
   });
 
   final int pillarId;
@@ -36,6 +37,14 @@ class ExpenseDraft {
   final String? note;
   final Mood? mood;
   final int? paymentMethodId;
+
+  /// FR-28: money back, counted as negative spend in its pillar.
+  final bool isRefund;
+
+  String get type => isRefund ? 'refund' : 'expense';
+
+  /// Net effect on spending.
+  int get net => isRefund ? -amount : amount;
 }
 
 class NoPeriodForDateException implements Exception {
@@ -67,11 +76,12 @@ class ExpenseRepository {
             note: Value(_clean(draft.note)),
             mood: Value(draft.mood?.name),
             paymentMethodId: Value(draft.paymentMethodId),
+            type: Value(draft.type),
             createdAt: stamp,
             updatedAt: stamp,
           ),
         );
-    await _trackFrozen(periodId, draft.amount);
+    await _trackFrozen(periodId, draft.net);
     return id;
   });
 
@@ -87,12 +97,12 @@ class ExpenseRepository {
         note: Value(_clean(draft.note)),
         mood: Value(draft.mood?.name),
         paymentMethodId: Value(draft.paymentMethodId),
+        type: Value(draft.type),
         updatedAt: Value(LocalDate.nowStamp()),
       ),
     );
     if (old.deletedAt == null) await _trackFrozen(old.periodId, -_net(old));
-    final net = old.type == 'refund' ? -draft.amount : draft.amount;
-    if (old.deletedAt == null) await _trackFrozen(periodId, net);
+    if (old.deletedAt == null) await _trackFrozen(periodId, draft.net);
   });
 
   /// Hides an expense; [restore] brings it back (undo, FR-24).

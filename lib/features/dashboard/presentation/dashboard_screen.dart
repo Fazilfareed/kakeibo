@@ -17,6 +17,10 @@ import '../../backup/presentation/backup_actions.dart';
 import '../../checkin/data/checkin_providers.dart';
 import '../../expenses/data/expense_providers.dart';
 import '../../expenses/presentation/expense_tile.dart';
+import '../../guide/domain/guide_content.dart';
+import '../../guide/domain/guide_state.dart';
+import '../../guide/presentation/coach_marks.dart';
+import '../../guide/presentation/guide_widgets.dart';
 import '../../history/data/history_providers.dart';
 import '../../periods/data/period_providers.dart';
 import '../../periods/domain/period_summary.dart';
@@ -33,6 +37,9 @@ const reflectionPromptedKey = 'reflection_prompted_period';
 
 /// Also remembered in memory, since the setting is written asynchronously.
 final _autoOpened = <int>{};
+bool _tourOpened = false;
+final _heroKey = GlobalKey(debugLabel: 'coach-hero');
+final _pillarsKey = GlobalKey(debugLabel: 'coach-pillars');
 
 /// Home: how much is left this month (MASTER.md §7.4, §8; PRD FR-30–37).
 /// Order: hero card → action cards → pillar bars → recent 5.
@@ -41,9 +48,21 @@ class DashboardScreen extends ConsumerWidget {
 
   /// FR-50: when a month has ended, its reflection opens once by itself.
   /// After that it waits as a card; logging is never blocked.
+  /// First run: the welcome tour comes before anything else (FR-90).
+  bool _autoOpenTour(BuildContext context, WidgetRef ref) {
+    final settings = ref.read(settingsProvider).value;
+    if (settings == null || settings.tourDone) return false;
+    if (_tourOpened) return true;
+    _tourOpened = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (context.mounted) context.push(Routes.welcome);
+    });
+    return true;
+  }
+
   void _autoOpenReflection(BuildContext context, WidgetRef ref, Period? pending) {
     final settings = ref.read(settingsProvider).value;
-    if (pending == null || settings == null) return;
+    if (pending == null || settings == null || !settings.tourDone) return;
     if (settings[reflectionPromptedKey] == '${pending.id}' || _autoOpened.contains(pending.id)) {
       return;
     }
@@ -72,7 +91,28 @@ class DashboardScreen extends ConsumerWidget {
     final backupStale = AutoBackup.isStale(settings, DateTime.now(), firstUse: firstUse);
     final pending = ref.watch(pendingReflectionProvider).value;
     ref.watch(settingsProvider);
-    _autoOpenReflection(context, ref, pending);
+    if (!_autoOpenTour(context, ref)) {
+      _autoOpenReflection(context, ref, pending);
+      CoachMarks.maybeShow(context, ref, CoachScreen.dashboard, [
+        CoachStep(
+          target: _heroKey,
+          title: 'What’s left this month',
+          body:
+              'Your spendable money minus what you’ve spent, and how much a day keeps you '
+              'on track. Tap (?) next to any number for how it’s worked out.',
+        ),
+        CoachStep(
+          target: CoachTargets.fab,
+          title: 'Log a spend',
+          body: 'Tap + whenever you spend: amount, pillar, save. Three taps.',
+        ),
+        CoachStep(
+          target: _pillarsKey,
+          title: 'Your four pillars',
+          body: 'Each bar fills as you spend against its budget. Tap one to see its spends.',
+        ),
+      ]);
+    }
     final week = ref.watch(currentWeekProvider);
     final checkin = ref.watch(currentCheckinProvider);
     final checkedIn = checkin.value != null;
@@ -101,7 +141,14 @@ class DashboardScreen extends ConsumerWidget {
         ),
         Text(DateFormat('MMMM').format(summary.range.start), style: context.text.headlineSmall),
         const SizedBox(height: Space.s4),
-        _HeroCard(summary: summary, planned: planned, savingsSetAside: period.savingsSetAside),
+        KeyedSubtree(
+          key: _heroKey,
+          child: _HeroCard(
+            summary: summary,
+            planned: planned,
+            savingsSetAside: period.savingsSetAside,
+          ),
+        ),
         const SizedBox(height: Space.s3),
         if (pending != null) ...[
           _ActionCard(
@@ -165,7 +212,10 @@ class DashboardScreen extends ConsumerWidget {
           ),
           const SizedBox(height: Space.s3),
         ],
+        const GettingStartedCard(),
+        const SizedBox(height: Space.s3),
         Card(
+          key: _pillarsKey,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(Space.s3, Space.s2, Space.s3, Space.s2),
             child: Column(
@@ -184,6 +234,8 @@ class DashboardScreen extends ConsumerWidget {
         ),
         const SizedBox(height: Space.s3),
         _RecentCard(expenses: expenses, pillars: pillars, onSeeAll: () => openPillar(null)),
+        const SizedBox(height: Space.s3),
+        const TipCard(),
         const SizedBox(height: Space.s2),
         Wrap(
           alignment: WrapAlignment.end,
@@ -275,6 +327,7 @@ class _HeroCard extends StatelessWidget {
                     hideZeroDecimals: true,
                   ),
                   Text(' a day keeps you on track', style: context.text.bodySmall),
+                  const InfoButton(info: GuideContent.dailyAllowance),
                 ],
               ),
             if (planned) ...[
@@ -358,6 +411,7 @@ class _SavingsRow extends ConsumerWidget {
             ),
           ),
         ),
+        const InfoButton(info: GuideContent.projection),
       ],
     );
   }

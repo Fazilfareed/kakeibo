@@ -14,6 +14,8 @@ import 'package:kakeibo/features/checkin/data/checkin_providers.dart';
 import 'package:kakeibo/features/checkin/data/checkin_repository.dart';
 import 'package:kakeibo/features/expenses/data/expense_providers.dart';
 import 'package:kakeibo/features/expenses/data/expense_repository.dart';
+import 'package:kakeibo/features/guide/domain/guide_state.dart';
+import 'package:kakeibo/features/guide/presentation/guide_widgets.dart';
 import 'package:kakeibo/features/history/data/history_providers.dart';
 import 'package:kakeibo/features/lock/data/lock_providers.dart';
 import 'package:kakeibo/features/lock/data/lock_repository.dart';
@@ -39,6 +41,13 @@ const _pillars = [
   Pillar(id: 3, name: 'Culture', icon: 'menu_book', sortOrder: 3),
   Pillar(id: 4, name: 'Unexpected', icon: 'bolt', sortOrder: 4),
 ];
+
+final _guideSeen = {
+  GuideKeys.tourDone: 'true',
+  GuideKeys.checklistDismissed: 'true',
+  GuideKeys.tipsEnabled: 'false',
+  for (final s in CoachScreen.values) GuideKeys.coachSeen(s): 'true',
+};
 
 class _MockExpenses extends Mock implements ExpenseRepository {}
 
@@ -125,22 +134,27 @@ Widget _app({
   List<MonthRecord> history = const [],
   BackupRepository? backup,
   LockRepository? lock,
+  SettingsRepository? settingsRepo,
 }) {
   final period = _period(status: status);
-  final settingsRepo = _MockSettings();
-  when(() => settingsRepo.set(any(), any())).thenAnswer((_) async {});
+  final defaultSettingsRepo = _MockSettings();
+  when(() => defaultSettingsRepo.set(any(), any())).thenAnswer((_) async {});
   return ProviderScope(
     overrides: [
       ledgerBootstrapProvider.overrideWith((ref) async {}),
       pillarsProvider.overrideWith((ref) => Stream.value(_pillars)),
-      settingsProvider.overrideWith((ref) => Stream.value(settings ?? AppDatabase.defaultSettings)),
+      // The guide counts as seen, so the tour and coach marks stay out of
+      // the way; the guide's own tests turn them back on.
+      settingsProvider.overrideWith(
+        (ref) => Stream.value({..._guideSeen, ...(settings ?? AppDatabase.defaultSettings)}),
+      ),
       currentPeriodProvider.overrideWith((ref) => Stream.value(period)),
       currentSummaryProvider.overrideWithValue(summary ?? _summary()),
       currentImprovementProvider.overrideWith((ref) => Stream.value(improvement)),
       periodExpensesProvider.overrideWith((ref, id) => Stream.value(spends)),
       paymentMethodsProvider.overrideWith((ref) => Stream.value(const <PaymentMethod>[])),
       if (expenses != null) expenseRepositoryProvider.overrideWithValue(expenses),
-      settingsRepositoryProvider.overrideWithValue(settingsRepo),
+      settingsRepositoryProvider.overrideWithValue(settingsRepo ?? defaultSettingsRepo),
       pendingReflectionProvider.overrideWith((ref) => Stream.value(pending)),
       currentCheckinProvider.overrideWith((ref) => Stream.value(null)),
       currentWeekTotalsProvider.overrideWith((ref) => Stream.value(weekTotals)),
@@ -150,6 +164,7 @@ Widget _app({
       if (checkins != null) checkinRepositoryProvider.overrideWithValue(checkins),
       historyMonthsProvider.overrideWith((ref) => Stream.value(history)),
       spendDatesProvider.overrideWith((ref) => Stream.value(const <String>[])),
+      anyCheckinProvider.overrideWith((ref) => Stream.value(false)),
       reminderSyncProvider.overrideWithValue(null),
       notificationsAllowedProvider.overrideWith((ref) async => true),
       biometricsAvailableProvider.overrideWith((ref) async => false),
@@ -745,5 +760,120 @@ void main() {
     expect(tester.getSemantics(find.bySemanticsLabel('7')), isSemantics(hasTapAction: true));
     expect(tester.getSemantics(find.bySemanticsLabel('Delete')), isSemantics(hasTapAction: true));
     handle.dispose();
+  });
+
+  group('M5b guide', () {
+    testWidgets('first run: tour, Skip, setup steps, then the tour is marked done', (tester) async {
+      _phoneScreen(tester);
+      final settingsRepo = _MockSettings();
+      when(() => settingsRepo.set(any(), any())).thenAnswer((_) async {});
+      await tester.pumpWidget(
+        _app(
+          settingsRepo: settingsRepo,
+          settings: {...AppDatabase.defaultSettings, GuideKeys.tourDone: 'false'},
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('What is Kakeibo?'), findsOneWidget);
+      await tester.tap(find.text('Next'));
+      await tester.pumpAndSettle();
+      expect(find.text('Four questions'), findsOneWidget);
+      expect(find.bySemanticsLabel('Card 2 of 5'), findsOneWidget);
+
+      // Skip still leads to the required setup (FR-91).
+      await tester.tap(find.text('Skip'));
+      await tester.pumpAndSettle();
+      expect(find.text('A few settings'), findsOneWidget);
+      expect(find.textContaining('Rs 12,500.00'), findsOneWidget);
+      await tester.tap(find.text('Next'));
+      await tester.pumpAndSettle();
+      expect(find.text('Gentle reminders'), findsOneWidget);
+      await tester.tap(find.text('Not now'));
+      await tester.pumpAndSettle();
+      expect(find.text('Lock with a PIN?'), findsOneWidget);
+      await tester.tap(find.text('Not now'));
+      await tester.pumpAndSettle();
+
+      verify(() => settingsRepo.set(GuideKeys.tourDone, 'true')).called(1);
+      verifyNever(() => settingsRepo.set('reminders_on', any()));
+    });
+
+    testWidgets('Getting started checklist and tip of the day on Home', (tester) async {
+      _phoneScreen(tester);
+      await tester.pumpWidget(
+        _app(
+          settings: {
+            ...AppDatabase.defaultSettings,
+            GuideKeys.checklistDismissed: 'false',
+            GuideKeys.tipsEnabled: 'true',
+            'reminders_on': 'true',
+          },
+          history: [
+            MonthRecord(
+              period: _period(),
+              income: 0,
+              fixed: 0,
+              spentByPillar: const {},
+              reflection: null,
+            ),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('Getting started'), 200);
+      expect(find.text('2 of 5'), findsOneWidget, reason: 'planned and reminders on');
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is Semantics && w.properties.label == 'Plan your month, done',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is Semantics && w.properties.label == 'Log your first expense, not done yet',
+        ),
+        findsOneWidget,
+      );
+
+      await tester.scrollUntilVisible(find.text('Kakeibo tip'), 200);
+      expect(find.text('Hide tips'), findsOneWidget);
+    });
+
+    testWidgets('(?) explains the daily allowance', (tester) async {
+      _phoneScreen(tester);
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('What is a day keeps you on track?'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Daily allowance = left to spend'), findsOneWidget);
+    });
+
+    testWidgets('Help Center search finds the refund answer', (tester) async {
+      _phoneScreen(tester);
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel('Settings'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('Help Center'), 300);
+      await tester.ensureVisible(find.text('Help Center'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Help Center'));
+      await tester.pumpAndSettle();
+      expect(find.text('Kakeibo basics'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'refund');
+      await tester.pump();
+      for (var i = 0; i < 4; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.text('Kakeibo basics'), findsNothing);
+      expect(find.text('Questions'), findsOneWidget);
+      await tester.tap(find.text('Questions'));
+      for (var i = 0; i < 6; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.text('I started mid-month', findRichText: true), findsOneWidget);
+    });
   });
 }

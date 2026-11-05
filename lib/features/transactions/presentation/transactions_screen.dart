@@ -14,7 +14,12 @@ import '../../../core/pillars/pillars_provider.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../expenses/data/expense_providers.dart';
 import '../../expenses/presentation/expense_tile.dart';
+import '../../guide/domain/guide_state.dart';
+import '../../guide/presentation/coach_marks.dart';
 import '../../periods/data/period_providers.dart';
+
+final _filterKey = GlobalKey(debugLabel: 'coach-filter');
+final _firstDayKey = GlobalKey(debugLabel: 'coach-first-day');
 
 /// Pillar filter on the Spends tab (null = all).
 final spendsFilterProvider = NotifierProvider<_Filter, int?>(_Filter.new);
@@ -48,6 +53,22 @@ class TransactionsScreen extends ConsumerWidget {
       byDay.putIfAbsent(e.date, () => []).add(e);
     }
 
+    CoachMarks.maybeShow(context, ref, CoachScreen.transactions, [
+      CoachStep(
+        target: _filterKey,
+        title: 'Filter by pillar',
+        body: 'See only Needs, Wants, Culture or Unexpected.',
+      ),
+      if (visible.isNotEmpty)
+        CoachStep(
+          target: _firstDayKey,
+          title: 'Edit or delete',
+          body:
+              'Tap a spend to change it. Swipe it left, or long-press, to delete. '
+              'There\u2019s always an Undo.',
+        ),
+    ]);
+
     return CustomScrollView(
       slivers: [
         SliverPadding(
@@ -56,7 +77,7 @@ class TransactionsScreen extends ConsumerWidget {
         ),
         SliverPersistentHeader(
           pinned: true,
-          delegate: _FilterBar(pillars: pillars, selected: filter, ref: ref),
+          delegate: _FilterBar(pillars: pillars, selected: filter, ref: ref, coachKey: _filterKey),
         ),
         if (visible.isEmpty)
           SliverFillRemaining(
@@ -77,9 +98,10 @@ class TransactionsScreen extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(Space.gutter, 0, Space.gutter, 96),
             sliver: SliverList.list(
               children: [
-                for (final day in byDay.entries) ...[
+                for (final (d, day) in byDay.entries.indexed) ...[
                   _DayHeader(date: day.key, items: day.value),
                   Card(
+                    key: d == 0 ? _firstDayKey : null,
                     child: Column(
                       children: [
                         for (final (i, e) in day.value.indexed) ...[
@@ -103,11 +125,17 @@ class TransactionsScreen extends ConsumerWidget {
 }
 
 class _FilterBar extends SliverPersistentHeaderDelegate {
-  _FilterBar({required this.pillars, required this.selected, required this.ref});
+  _FilterBar({
+    required this.pillars,
+    required this.selected,
+    required this.ref,
+    required this.coachKey,
+  });
 
   final List<Pillar> pillars;
   final int? selected;
   final WidgetRef ref;
+  final GlobalKey coachKey;
 
   @override
   double get minExtent => 60;
@@ -119,6 +147,7 @@ class _FilterBar extends SliverPersistentHeaderDelegate {
     final c = context.colors;
     void pick(int? id) => ref.read(spendsFilterProvider.notifier).set(id);
     return Container(
+      key: coachKey,
       color: c.bg,
       alignment: Alignment.centerLeft,
       child: ListView(
